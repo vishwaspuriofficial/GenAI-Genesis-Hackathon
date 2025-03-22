@@ -31,7 +31,7 @@ def show_request_page():
         with col2:
             meeting_goal = st.text_area("Meeting Goal", height=132)
         
-        st.markdown('<h3 style="margin-top: 1.5rem;">Prompt Information</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="margin-top: 1.5rem;">Perpetual Question</h3>', unsafe_allow_html=True)
         prompt_file = st.file_uploader("Upload Prompt File", type=['txt'])
         
         col1, col2 = st.columns([3, 1])
