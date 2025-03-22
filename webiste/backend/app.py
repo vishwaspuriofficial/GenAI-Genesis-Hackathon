@@ -30,6 +30,31 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
+# Helper function to get the current user from the request token
+def get_current_user():
+    """Get the current user from the request token"""
+    token = None
+    # Check if token is in headers
+    if 'Authorization' in request.headers:
+        auth_header = request.headers['Authorization']
+        if ' ' in auth_header:
+            token = auth_header.split(" ")[1]
+        else:
+            token = auth_header
+    
+    if not token:
+        print("[DEBUG] No token found in request")
+        return None
+    
+    try:
+        # Decode the token
+        data = jwt.decode(token, app.secret_key, algorithms=["HS256"])
+        current_user = firebase.get_user_by_email(data['email'])
+        return current_user
+    except Exception as e:
+        print(f"[DEBUG] Error decoding token: {str(e)}")
+        return None
+
 # Decorator for routes that require authentication
 def token_required(f):
     @wraps(f)
@@ -240,68 +265,232 @@ def update_meeting(current_user, meeting_id):
         return jsonify({'message': 'Error updating meeting', 'error': str(e)}), 500
 
 # File upload routes
-@app.route('/api/meetings/upload/<meeting_id>', methods=['POST'])
-@token_required
-def upload_file(current_user, meeting_id):
-    try:
-        # Check if meeting exists
+@app.route('/api/upload-file', methods=['POST'])
+def upload_file():
+    """Upload a file to Firebase Storage"""
+    print("[DEBUG] Starting /api/upload-file endpoint")
+    
+    # Get the current user
+    current_user = get_current_user()
+    if current_user is None:
+        print("[DEBUG] No user is logged in for file upload")
+        return jsonify({"error": "No user is logged in"}), 401
+    
+    # Check if user is admin or team
+    is_admin = current_user.get('role') == 'admin'
+    is_team = current_user.get('role') == 'team'
+    
+    if not is_admin and not is_team:
+        print(f"[DEBUG] User {current_user.get('email')} with role {current_user.get('role')} not authorized for file upload")
+        return jsonify({"error": "Not authorized"}), 403
+
+    # Check if file was uploaded
+    if 'file' not in request.files:
+        print("[DEBUG] No file part in request")
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    
+    # Check if file has a name
+    if file.filename == '':
+        print("[DEBUG] No file selected")
+        return jsonify({"error": "No file selected"}), 400
+    
+    meeting_id = request.form.get('meeting_id')
+    print(f"[DEBUG] Uploading file for meeting_id: {meeting_id}")
+    
+    # If this is a team upload and we have a meeting ID, get the team_agent
+    team_agent = None
+    if is_team and meeting_id:
         meeting = firebase.get_meeting_by_id(meeting_id)
+        if meeting:
+            team_agent = meeting.get('team_agent')
+            print(f"[DEBUG] Found team_agent for meeting: {team_agent}")
+    
+    # Save file temporarily
+    temp_dir = 'uploads'
+    os.makedirs(temp_dir, exist_ok=True)
+    filepath = os.path.join(temp_dir, secure_filename(file.filename))
+    file.save(filepath)
+    
+    # Set folder path based on role and team_agent
+    if is_admin:
+        folder = "attachments"
+    elif team_agent:
+        folder = f"responses/{team_agent}"  # Using team_agent for organization
+    else:
+        folder = "responses"
         
-        if not meeting:
-            return jsonify({'message': 'Meeting not found'}), 404
-        
-        # Check if user has permission to upload to this meeting
-        if meeting['requester_id'] != current_user['id'] and meeting['team_agent'] != current_user['role']:
-            return jsonify({'message': 'You do not have permission to upload to this meeting'}), 403
-        
-        # Check if file is in the request
-        if 'file' not in request.files:
-            return jsonify({'message': 'No file part in the request'}), 400
-            
-        file = request.files['file']
-        
-        # Check if a file was selected
-        if file.filename == '':
-            return jsonify({'message': 'No file selected'}), 400
-            
-        # Check if file type is allowed
-        if not allowed_file(file.filename):
-            return jsonify({'message': 'File type not allowed'}), 400
-            
-        # Secure the filename
-        filename = secure_filename(file.filename)
-        
-        # Generate a unique filename
-        unique_filename = f"{uuid.uuid4()}_{filename}"
-        
-        # Save the file locally
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-        file.save(file_path)
-        
-        # Upload the file to Firebase Storage
-        with open(file_path, 'rb') as file_data:
-            file_url = firebase.upload_file(file_data.read(), unique_filename)
-        
-        # Delete the local file
-        os.remove(file_path)
-        
-        # Add the attachment to the meeting
-        attachment = Attachment(
-            filename=filename,
-            file_url=file_url,
-            file_type=file.content_type
+    if meeting_id:
+        folder = f"meeting_files/{meeting_id}/{folder}"
+    else:
+        folder = f"meeting_files/{folder}"
+    
+    print(f"[DEBUG] Uploading to folder: {folder}")
+    
+    try:
+        # Upload file to Firebase Storage
+        content_type = file.content_type if hasattr(file, 'content_type') else None
+        url = firebase.upload_file(
+            file_path=filepath, 
+            filename=secure_filename(file.filename), 
+            folder=folder,
+            content_type=content_type
         )
         
-        firebase.add_attachment_to_meeting(meeting_id, attachment.to_dict())
+        # Remove temporary file
+        os.remove(filepath)
         
-        return jsonify({
-            'message': 'File uploaded successfully',
-            'file_url': file_url,
-            'filename': filename
-        }), 200
+        # If this is a team upload to a meeting, add it to the meeting response files too
+        if is_team and meeting_id and team_agent:
+            result = firebase.add_response_file_to_meeting(
+                meeting_id, 
+                {
+                    "filename": secure_filename(file.filename),
+                    "url": url,
+                    "uploaded_by": current_user.get('email'),
+                    "uploaded_at": datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    "team": team_agent
+                }
+            )
+            if not result:
+                print("[DEBUG] Failed to update meeting with response file")
+        
+        print(f"[DEBUG] File uploaded successfully. URL: {url}")
+        response_data = {"url": url}
+        if team_agent:
+            response_data["team"] = team_agent
+        return jsonify(response_data), 200
     except Exception as e:
-        print("Error uploading file:", e)
-        return jsonify({'message': 'Error uploading file', 'error': str(e)}), 500
+        print(f"[DEBUG] Error in file upload: {str(e)}")
+        # Clean up temp file if it exists
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/team-upload', methods=['POST'])
+def upload_team_file():
+    """Upload files directly to a folder named after the team role"""
+    print("[DEBUG] Starting /api/team-upload endpoint with simplified folder structure")
+    print(f"[DEBUG] Request headers: {request.headers}")
+    print(f"[DEBUG] Request files: {request.files}")
+    print(f"[DEBUG] Request form: {request.form}")
+    
+    # Get the current user
+    current_user = get_current_user()
+    print(f"[DEBUG] Current user: {current_user}")
+    
+    # For testing only - if no user found, use a test user
+    if current_user is None:
+        print("[DEBUG] No user found, using test user for demo")
+        current_user = {
+            "id": "test-user-id",
+            "email": "test@example.com",
+            "role": "product"  # Default role for testing
+        }
+    
+    # Get user's role for the folder name
+    user_role = current_user.get('role')
+    if not user_role:
+        print(f"[DEBUG] User {current_user.get('email')} has no role")
+        return jsonify({"error": "User has no assigned role"}), 400
+    
+    # Force user role to uppercase first letter for consistency with Firebase folders
+    user_role = user_role.capitalize()
+    print(f"[DEBUG] Will upload files directly to folder: {user_role}")
+    
+    # Check if files were uploaded
+    if 'files[]' not in request.files:
+        print("[DEBUG] No files part in request")
+        print(f"[DEBUG] Available keys in request.files: {list(request.files.keys())}")
+        return jsonify({"error": "No files part"}), 400
+    
+    # Handle multiple files
+    files = request.files.getlist('files[]')
+    if not files or len(files) == 0 or files[0].filename == '':
+        print("[DEBUG] No files selected for team upload")
+        return jsonify({"error": "No files selected"}), 400
+        
+    print(f"[DEBUG] Received {len(files)} files for upload")
+    for f in files:
+        print(f"[DEBUG] File: {f.filename}, Content Type: {f.content_type}")
+    
+    # Get optional meeting ID for metadata only
+    meeting_id = request.form.get('meeting_id')
+    print(f"[DEBUG] Meeting ID: {meeting_id}")
+    
+    # Create upload folder if it doesn't exist
+    temp_dir = 'uploads'
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    # Track the results
+    uploaded_files = []
+    error_files = []
+    
+    # Process each file
+    for file in files:
+        if file.filename == '':
+            continue
+            
+        try:
+            # Save the file temporarily
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(temp_dir, filename)
+            file.save(filepath)
+            
+            # Use the user's role directly as the folder
+            folder = user_role  # Already capitalized above
+            print(f"[DEBUG] Uploading to folder: {folder} - File: {filename}")
+            
+            # Upload to Firebase Storage
+            content_type = file.content_type if hasattr(file, 'content_type') else None
+            url = firebase.upload_file(
+                file_path=filepath,
+                filename=filename,
+                folder=folder,
+                content_type=content_type
+            )
+            
+            # Remove temporary file
+            os.remove(filepath)
+            
+            # Add to meeting document if meeting_id is provided
+            if meeting_id:
+                file_data = {
+                    "filename": filename,
+                    "url": url,
+                    "uploaded_by": current_user.get('email'),
+                    "uploaded_at": datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                    "team": user_role  # Use user_role as team, maintain capitalization
+                }
+                result = firebase.add_response_file_to_meeting(meeting_id, file_data)
+                print(f"[DEBUG] Added file to meeting document: {result}")
+            
+            uploaded_files.append({
+                "filename": filename,
+                "url": url,
+                "team": user_role
+            })
+            print(f"[DEBUG] File {filename} uploaded successfully. URL: {url}")
+                
+        except Exception as e:
+            print(f"[DEBUG] Error uploading file {file.filename}: {str(e)}")
+            error_files.append(file.filename)
+            # Clean up temp file if it exists
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    # Return the results
+    if len(uploaded_files) > 0:
+        print(f"[DEBUG] {len(uploaded_files)} files uploaded successfully, {len(error_files)} failed")
+        return jsonify({
+            "message": f"{len(uploaded_files)} files uploaded successfully",
+            "files": uploaded_files,
+            "errors": error_files
+        }), 200
+    else:
+        print("[DEBUG] No files were successfully uploaded")
+        return jsonify({"error": "No files were successfully uploaded", "errors": error_files}), 500
 
 @app.route('/api/meetings/attachment/<meeting_id>', methods=['DELETE'])
 @token_required
@@ -333,6 +522,112 @@ def delete_attachment(current_user, meeting_id):
     except Exception as e:
         print("Error deleting file:", e)
         return jsonify({'message': 'Error deleting file', 'error': str(e)}), 500
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """
+    Get the status of the API and Firebase connections
+    """
+    storage_status = "OK" if firebase.bucket is not None and not firebase.mock_mode else "MOCK"
+    firestore_status = "OK" if firebase.db is not None and not firebase.mock_mode else "MOCK"
+    
+    bucket_name = Config.FIREBASE_STORAGE_BUCKET
+    
+    response_data = {
+        "api": "running",
+        "firebase": {
+            "storage": storage_status,
+            "firestore": firestore_status,
+            "mock_mode": firebase.mock_mode,
+            "storage_bucket": bucket_name
+        },
+        "upload_folder": app.config['UPLOAD_FOLDER'],
+        "version": "1.0.0"
+    }
+    
+    # Return 500 status if in mock mode, to indicate service degradation
+    status_code = 200 if not firebase.mock_mode else 207
+    
+    return jsonify(response_data), status_code
+
+@app.route('/api/simple-upload', methods=['POST'])
+def simple_upload_file():
+    """
+    Simplified endpoint to upload files directly to a folder named after the user's role.
+    No meeting associations, just straight to Firebase Storage.
+    """
+    print("[DEBUG] Starting /api/simple-upload endpoint")
+    print(f"[DEBUG] Request headers: {request.headers}")
+    print(f"[DEBUG] Request files: {request.files}")
+    print(f"[DEBUG] Request form: {request.form}")
+    
+    # Get the current user
+    current_user = get_current_user()
+    print(f"[DEBUG] Current user: {current_user}")
+    
+    # For testing only - if no user found, use a test user
+    if current_user is None:
+        print("[DEBUG] No user found, using test user for demo")
+        current_user = {
+            "id": "test-user-id",
+            "email": "test@example.com",
+            "role": "product"  # Default role for testing
+        }
+    
+    # Get user's role for the folder name
+    user_role = current_user.get('role')
+    if not user_role:
+        print(f"[DEBUG] User {current_user.get('email')} has no role")
+        return jsonify({"error": "User has no assigned role"}), 400
+    
+    # Force role to be capitalized for consistency with Firebase folders
+    user_role = user_role.capitalize()
+    print(f"[DEBUG] Will use folder: {user_role}")
+    
+    # Check if file was uploaded
+    if 'file' not in request.files:
+        print("[DEBUG] No file part in request")
+        print(f"[DEBUG] Available keys in request.files: {list(request.files.keys())}")
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    
+    # Check if file has a name
+    if file.filename == '':
+        print("[DEBUG] No file selected")
+        return jsonify({"error": "No file selected"}), 400
+    
+    print(f"[DEBUG] Will upload file directly to folder: {user_role}")
+    print(f"[DEBUG] File: {file.filename}, Content Type: {file.content_type if hasattr(file, 'content_type') else 'unknown'}")
+    
+    # Save file temporarily
+    temp_dir = 'uploads'
+    os.makedirs(temp_dir, exist_ok=True)
+    filepath = os.path.join(temp_dir, secure_filename(file.filename))
+    file.save(filepath)
+    
+    try:
+        # Upload file to Firebase Storage directly to the role folder
+        content_type = file.content_type if hasattr(file, 'content_type') else None
+        url = firebase.upload_file(
+            file_path=filepath, 
+            filename=secure_filename(file.filename), 
+            folder=user_role,  # Just the role name, nothing else
+            content_type=content_type
+        )
+        
+        # Remove temporary file
+        os.remove(filepath)
+        
+        print(f"[DEBUG] File uploaded successfully to {user_role} folder. URL: {url}")
+        return jsonify({"url": url, "role": user_role}), 200
+        
+    except Exception as e:
+        print(f"[DEBUG] Error in simple file upload: {str(e)}")
+        # Clean up temp file if it exists
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG) 

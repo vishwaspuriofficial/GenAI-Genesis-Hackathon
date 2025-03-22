@@ -20,6 +20,8 @@ class FirebaseService:
     def initialize(self):
         """Initialize Firebase with service account credentials"""
         try:
+            self.mock_mode = False  # Default to not using mock mode
+            
             cred = None
             if Config.FIREBASE_CREDENTIALS_JSON:
                 try:
@@ -61,35 +63,100 @@ class FirebaseService:
                 self.appointments_collection = 'appointment'
                 return
                 
-            # Initialize the app
-            print(f"Initializing Firebase app with storage bucket: {Config.FIREBASE_STORAGE_BUCKET}")
-            firebase_admin.initialize_app(cred, {
-                'storageBucket': Config.FIREBASE_STORAGE_BUCKET
-            })
+            raw_bucket = Config.FIREBASE_STORAGE_BUCKET
+            print(f"Raw Firebase Storage bucket URL: {raw_bucket}")
             
-            # Initialize Firestore and Storage
-            print("Initializing Firestore client...")
-            self.db = firestore.client()
+            self.original_bucket_url = raw_bucket
             
-            # Set mock mode to False
-            self.mock_mode = False
+            if not raw_bucket:
+                print("No Firebase Storage bucket URL found in configuration")
+                self.mock_mode = True
+                self.bucket = None
+                return
+                
+            if raw_bucket.startswith('gs://'):
+                bucket_name = raw_bucket.replace('gs://', '')
+                print(f"Removed gs:// prefix from URL: {bucket_name}")
+            else:
+                bucket_name = raw_bucket
+                
+            self.bucket_name = bucket_name
+            
+            print(f"Using Firebase Storage bucket: {bucket_name}")
+            
+            if not bucket_name or bucket_name == "None" or '.' not in bucket_name:
+                print("\nWARNING: Invalid Firebase Storage bucket name.")
+                print(f"Current value: '{bucket_name}'")
+                print("Setting Storage to MOCK MODE.\n")
+                self.mock_mode = True
+                self.db = None
+                self.bucket = None
+                self.users_collection = 'user'
+                self.appointments_collection = 'appointment'
+                return
             
             try:
-                print("Testing Firestore connection...")
-                test_ref = self.db.collection('_test').document('test')
-                test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
-                test_ref.get()  # If this succeeds, connection is working
-                test_ref.delete()  # Clean up test document
-                print("Firestore connection verified successfully")
+                firebase_admin.initialize_app(cred, {
+                    'storageBucket': bucket_name
+                })
+                print("Firebase app initialized successfully")
             except Exception as e:
-                print(f"WARNING: Could not verify Firestore connection: {str(e)}")
-                print("Possible solutions:")
-                print("1. Make sure you've created a Firestore database in the Firebase console")
-                print("2. Verify that your Firebase credentials have permission to access Firestore")
-                print("3. Check if you have the correct project ID in your credentials file")
-                print("Continuing anyway, as this might be normal for a new database.")
+                print(f"Error initializing Firebase app: {str(e)}")
+                print("Starting in MOCK MODE due to Firebase app initialization error.")
+                self.mock_mode = True
+                self.db = None
+                self.bucket = None
+                self.users_collection = 'user'
+                self.appointments_collection = 'appointment'
+                return
             
-            self.bucket = storage.bucket()
+            # Initialize Firestore
+            print("Initializing Firestore client...")
+            try:
+                self.db = firestore.client()
+                self.mock_mode = False
+            except Exception as e:
+                print(f"Error creating Firestore client: {str(e)}")
+                print("Firestore will be in MOCK MODE.")
+                self.db = None
+                self.mock_mode = True
+            
+            # Test Firestore connection
+            if self.db:
+                try:
+                    print("Testing Firestore connection...")
+                    test_ref = self.db.collection('_test').document('test')
+                    test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
+                    test_ref.get()  # If this succeeds, connection is working
+                    test_ref.delete()  # Clean up test document
+                    print("Firestore connection verified successfully")
+                except Exception as e:
+                    print(f"WARNING: Could not verify Firestore connection: {str(e)}")
+                    print("Possible solutions:")
+                    print("1. Make sure you've created a Firestore database in the Firebase console")
+                    print("2. Verify that your Firebase credentials have permission to access Firestore")
+                    print("3. Check if you have the correct project ID in your credentials file")
+                    print("Continuing anyway, as this might be normal for a new database.")
+            
+            # Initialize Storage bucket
+            try:
+                print(f"Initializing Firebase Storage bucket: {bucket_name}")
+                self.bucket = storage.bucket()
+                
+                # Try to access the bucket to verify it exists
+                self.bucket.reload()
+                print("Firebase Storage bucket successfully initialized")
+                print(f"Firebase Storage bucket name: {self.bucket.name}")
+            except Exception as e:
+                print(f"ERROR: Could not access Firebase Storage bucket: {str(e)}")
+                print("Possible solutions:")
+                print("1. Make sure you've created a Storage bucket in the Firebase console")
+                print("2. Verify that your Firebase credentials have permission to access Storage")
+                print("3. Verify that the bucket name is correct in your config")
+                print("4. Storage bucket name should match your Firebase project's default bucket")
+                print("\nStorage uploads will use MOCK URLs instead.\n")
+                self.bucket = None
+                self.mock_mode = True
             
             print("Firebase initialized successfully")
             
@@ -98,10 +165,16 @@ class FirebaseService:
             self.appointments_collection = 'appointment'
             
             # Create Firestore collections references
-            self.users_ref = self.db.collection(self.users_collection)
-            self.appointments_ref = self.db.collection(self.appointments_collection)
+            if self.db:
+                self.users_ref = self.db.collection(self.users_collection)
+                self.appointments_ref = self.db.collection(self.appointments_collection)
+                print(f"Firestore collections initialized: {self.users_collection}, {self.appointments_collection}")
             
-            print(f"Firestore collections initialized: {self.users_collection}, {self.appointments_collection}")
+            # Log final status
+            if self.mock_mode:
+                print("\nWARNING: Running in partial or full MOCK MODE")
+                print(f"Firestore available: {self.db is not None}")
+                print(f"Storage available: {self.bucket is not None}\n")
         except Exception as e:
             print(f"Error initializing Firebase: {str(e)}")
             print("\nStarting in MOCK MODE - no real Firebase will be used\n")
@@ -115,34 +188,97 @@ class FirebaseService:
             self.mock_mode = True
     
     # File Storage methods
-    def upload_file(self, file_data, filename, folder="meeting_files"):
-        """Upload a file to Firebase Storage
+    def upload_file(self, file_path, filename=None, folder=None, content_type=None):
+        """Upload a file to Firebase Storage and return the URL"""
+        print(f"Starting upload_file: file_path={file_path}, filename={filename}, folder={folder}")
         
-        Args:
-            file_data: The binary data of the file
-            filename: The name of the file
-            folder: The folder path in Firebase Storage
+        try:
+            # Check if Firebase is configured
+            if self.mock_mode or self.bucket is None:
+                print("Mock mode or bucket is None, using mock URL")
+                # Use a mock URL for development
+                mock_url = f"https://example.com/mock-upload/meeting_files/{folder}/{filename or os.path.basename(file_path)}"
+                return mock_url
             
-        Returns:
-            The public URL of the uploaded file
-        """
-        if self.mock_mode or self.bucket is None:
-            # For development without Firebase
-            print("Firebase Storage not configured, using mock upload")
-            return f"https://example.com/mock-firebase/{folder}/{filename}"
+            # Get file size for debugging
+            try:
+                file_size = os.path.getsize(file_path)
+                print(f"File size: {file_size} bytes")
+            except Exception as e:
+                print(f"Error getting file size: {str(e)}")
             
-        # Create a storage reference
-        blob_path = f"{folder}/{filename}"
-        blob = self.bucket.blob(blob_path)
-        
-        # Upload the file
-        blob.upload_from_string(file_data)
-        
-        # Make the file publicly accessible
-        blob.make_public()
-        
-        # Return the public URL
-        return blob.public_url
+            # If no filename specified, use the basename of the file path
+            if not filename:
+                filename = os.path.basename(file_path)
+            
+            # Generate a unique filename to avoid collisions
+            unique_id = filename.split('.')[0]
+            file_ext = filename.split('.')[-1] if '.' in filename else ''
+            unique_filename = f"{unique_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file_ext}" if file_ext else unique_id
+            
+            # Check if the filename already includes a folder path
+            if "/" in filename:
+                blob_path = filename
+            else:
+                # Otherwise, construct the blob path using the folder and filename
+                blob_path = f"{folder}/{unique_filename}" if folder else unique_filename
+            
+            print(f"Uploading to blob path: {blob_path}")
+            
+            # Create a storage reference
+            blob = self.bucket.blob(blob_path)
+            
+            # Upload the file
+            with open(file_path, 'rb') as file:
+                if content_type:
+                    blob.upload_from_file(file, content_type=content_type)
+                else:
+                    blob.upload_from_file(file)
+            
+            # Make the blob publicly accessible
+            blob.make_public()
+            
+            # Get the public URL - use the format that worked in the test
+            bucket_name = self.bucket_name
+            url = f"https://storage.googleapis.com/{bucket_name}/{blob_path}"
+            
+            print(f"File uploaded successfully. URL: {url}")
+            return url
+            
+        except Exception as e:
+            print(f"Error uploading file to Firebase Storage: {str(e)}")
+            print(f"Full error details: {type(e).__name__}, {str(e)}")
+            
+            # Try to recover by using a direct URL format
+            try:
+                if not self.mock_mode and self.bucket is not None:
+                    bucket_name = self.bucket_name
+                    
+                    if filename is None:
+                        filename = os.path.basename(file_path)
+                    
+                    # Generate a unique filename for the recovery attempt
+                    unique_id = filename.split('.')[0]
+                    file_ext = filename.split('.')[-1] if '.' in filename else ''
+                    unique_filename = f"{unique_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.{file_ext}" if file_ext else unique_id
+                    
+                    blob_path = f"{folder}/{unique_filename}" if folder else unique_filename
+                    url = f"https://storage.googleapis.com/{bucket_name}/{blob_path}"
+                    
+                    # Try to upload again with a simpler approach
+                    blob = self.bucket.blob(blob_path)
+                    with open(file_path, 'rb') as file:
+                        blob.upload_from_file(file)
+                    blob.make_public()
+                    
+                    print(f"Recovery upload successful. URL: {url}")
+                    return url
+            except Exception as recovery_error:
+                print(f"Error in recovery attempt: {str(recovery_error)}")
+            
+            # Return a mock URL in case of error
+            error_url = f"https://example.com/error-upload/meeting_files/{folder}/{filename or os.path.basename(file_path)}"
+            return error_url
     
     def delete_file(self, file_url):
         """Delete a file from Firebase Storage based on its URL
@@ -370,8 +506,8 @@ class FirebaseService:
             print(f"Using mock database for add_attachment_to_meeting: {meeting_id}")
             return True
             
-        # Add timestamp to attachment
-        attachment_data['uploaded_at'] = firestore.SERVER_TIMESTAMP
+        # Add timestamp to attachment - use a string timestamp instead of SERVER_TIMESTAMP
+        attachment_data['uploaded_at'] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         
         self.appointments_ref.document(meeting_id).update({
             'attachments': firestore.ArrayUnion([attachment_data]),
@@ -407,4 +543,48 @@ class FirebaseService:
                 'updated_at': firestore.SERVER_TIMESTAMP
             })
             
-        return True 
+        return True
+        
+    def add_response_file_to_meeting(self, meeting_id, file_data):
+        """Add a response file to a meeting
+        
+        This adds files uploaded by team members to a separate 'response_files' array
+        in the meeting document. These files are stored in team-specific folders.
+        
+        Args:
+            meeting_id: The ID of the meeting to add the file to
+            file_data: Dictionary containing file metadata (filename, file_url, etc.)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if self.mock_mode or self.db is None:
+            print(f"Using mock database for add_response_file_to_meeting: {meeting_id}")
+            return True
+            
+        try:
+            # Get the meeting document
+            meeting_ref = self.appointments_ref.document(meeting_id)
+            meeting = meeting_ref.get()
+            
+            if not meeting.exists:
+                print(f"Meeting {meeting_id} not found")
+                return False
+                
+            # Initialize response_files array if it doesn't exist
+            meeting_data = meeting.to_dict()
+            if 'response_files' not in meeting_data:
+                meeting_ref.update({
+                    'response_files': []
+                })
+            
+            # Add the response file to the response_files array
+            meeting_ref.update({
+                'response_files': firestore.ArrayUnion([file_data]),
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
+            
+            return True
+        except Exception as e:
+            print(f"Error adding response file to meeting: {str(e)}")
+            return False 

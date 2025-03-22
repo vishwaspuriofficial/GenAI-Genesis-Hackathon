@@ -198,10 +198,15 @@ def display_meeting_card_pure_streamlit(meeting, user_role):
             with col2:
                 st.markdown(f"**Duration:** {meeting.get('duration', '30')} minutes")
             
+            # Display meeting link if available
+            meeting_link = meeting.get('meeting_link', '')
+            if meeting_link:
+                st.markdown(f"**Meeting Link:** [{meeting_link}]({meeting_link})")
+            
             st.markdown(f"**Requested by:** {meeting.get('requester_name', 'Unknown')}")
             
             # Attachments section
-            st.markdown("**Attachments:**")
+            st.markdown("**Requester Attachments:**")
             attachments = meeting.get('attachments', [])
             if attachments:
                 for attachment in attachments:
@@ -211,6 +216,18 @@ def display_meeting_card_pure_streamlit(meeting, user_role):
                         st.markdown(f"[{filename}]({file_url})")
             else:
                 st.code("No attachments", language=None)
+            
+            # Display team response files if available
+            st.markdown("**Team Response Files:**")
+            response_files = meeting.get('response_files', [])
+            if response_files:
+                for file in response_files:
+                    filename = file.get('filename', 'Unknown file')
+                    file_url = file.get('file_url', '')
+                    if file_url:
+                        st.markdown(f"[{filename}]({file_url})")
+            else:
+                st.code("No team files uploaded", language=None)
             
             # Response section if available
             if meeting.get('response'):

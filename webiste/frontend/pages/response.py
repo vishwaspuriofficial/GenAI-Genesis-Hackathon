@@ -1,6 +1,11 @@
 import streamlit as st
 import requests
-from utils.common import API_BASE_URL
+import os
+from utils.common import API_BASE_URL, MAX_FILE_SIZE_MB
+import time
+
+# Define file types to be uploaded
+ALLOWED_FILE_TYPES = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png']
 
 def show_response_page():
     """Show the meeting requests dashboard"""
@@ -79,8 +84,13 @@ def display_meetings(meetings, headers):
                 with col2:
                     st.markdown(f"**Duration:** {meeting.get('duration', '0')} minutes")
                 
+                # Meeting link if available
+                meeting_link = meeting.get('meeting_link', '')
+                if meeting_link:
+                    st.markdown(f"**Meeting Link:** [{meeting_link}]({meeting_link})")
+                
                 # Attachments section
-                st.markdown("**Attachments:**")
+                st.markdown("**Requester Attachments:**")
                 attachments = meeting.get('attachments', [])
                 if attachments:
                     for attachment in attachments:
@@ -90,6 +100,19 @@ def display_meetings(meetings, headers):
                             st.markdown(f"[{filename}]({file_url})")
                 else:
                     st.code("No attachments", language=None)
+                
+                # Display response files if available
+                st.markdown("**Team Response Files:**")
+                response_files = meeting.get('response_files', [])
+                if response_files:
+                    for file in response_files:
+                        filename = file.get('filename', 'Unknown file')
+                        # Check for both possible URL keys ('file_url' and 'url')
+                        file_url = file.get('url', file.get('file_url', ''))
+                        if file_url:
+                            st.markdown(f"[{filename}]({file_url})")
+                else:
+                    st.code("No response files uploaded", language=None)
                 
                 # Display response form for team agent
                 if current_user_role == meeting.get('team_agent', ''):
@@ -103,6 +126,78 @@ def display_response_form(meeting, headers):
     current_status = meeting.get('status', 'pending')
     current_response = meeting.get('response', '')
     
+    # Initialize files in session state
+    if f'response_files_{meeting_id}' not in st.session_state:
+        st.session_state[f'response_files_{meeting_id}'] = []
+    
+    # Initialize clear flag in session state
+    if f'clear_uploader_{meeting_id}' not in st.session_state:
+        st.session_state[f'clear_uploader_{meeting_id}'] = False
+    
+    # File uploader with multiple files support
+    st.markdown("### Upload Response Files")
+    
+    # Clear the uploader if needed (by using a unique key each time)
+    uploader_key = f"file_uploader_{meeting_id}"
+    if st.session_state[f'clear_uploader_{meeting_id}']:
+        # Use a timestamp to make the key unique, forcing a refresh
+        uploader_key = f"file_uploader_{meeting_id}_{time.time()}"
+        # Reset the clear flag
+        st.session_state[f'clear_uploader_{meeting_id}'] = False
+    
+    uploaded_files = st.file_uploader(
+        "Upload files to include with your response", 
+        type=ALLOWED_FILE_TYPES,
+        key=uploader_key,
+        accept_multiple_files=True,
+        help=f"Allowed file types: {', '.join(ALLOWED_FILE_TYPES)}. Select multiple files by holding Ctrl/Cmd while selecting."
+    )
+    
+    # Handle multiple files upload
+    if uploaded_files and len(uploaded_files) > 0:
+        # Show "Upload Now" button
+        if st.button("Upload Now", key=f"upload_now_{meeting_id}"):
+            # Upload all files directly
+            with st.spinner(f"Uploading {len(uploaded_files)} files..."):
+                upload_results = []
+                successful_uploads = 0
+                
+                for uploaded_file in uploaded_files:
+                    # Create a file payload for each file
+                    files_payload = {
+                        'files[]': (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
+                    }
+                    
+                    # Add meeting_id
+                    if meeting_id:
+                        files_payload['meeting_id'] = (None, meeting_id)
+                    
+                    # Upload the file
+                    try:
+                        response = requests.post(
+                            f"{API_BASE_URL}/team-upload",
+                            files=files_payload,
+                            headers=headers
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            successful_uploads += 1
+                        else:
+                            st.error(f"Failed to upload {uploaded_file.name}")
+                    except Exception as e:
+                        st.error(f"Error uploading {uploaded_file.name}: {str(e)}")
+                
+                # Display simple success message and refresh the page
+                if successful_uploads > 0:
+                    st.success(f"Successfully uploaded {successful_uploads} of {len(uploaded_files)} files")
+                    # Set flag to clear the uploader on next render
+                    st.session_state[f'clear_uploader_{meeting_id}'] = True
+                    # Short pause to show success message before refreshing
+                    time.sleep(1.5)
+                    st.rerun()
+    
+    # Response form
     with st.form(key=f"response_form_{meeting_id}"):
         st.write("Update meeting status:")
         status = st.radio(

@@ -26,7 +26,8 @@ def show_request_page():
             'date': '',
             'time': '',
             'duration': 30,
-            'team_agent': ROLES[0]
+            'team_agent': ROLES[0],
+            'meeting_link': ''
         }
     
     if 'meeting_files' not in st.session_state:
@@ -98,6 +99,14 @@ def show_meeting_details_form():
                 step=15
             )
         
+        # Meeting link
+        meeting_link = st.text_input(
+            "Meeting Link (Zoom, Teams, etc.)",
+            value=st.session_state.meeting_data.get('meeting_link', ''),
+            placeholder="https://zoom.us/j/123456789",
+            help="Provide a link for participants to join the meeting"
+        )
+        
         # Team agent selection
         team_agent = st.selectbox(
             "Select Team",
@@ -134,7 +143,8 @@ def show_meeting_details_form():
                     'date': date,
                     'time': time.strftime("%H:%M"),
                     'duration': duration,
-                    'team_agent': team_agent
+                    'team_agent': team_agent,
+                    'meeting_link': meeting_link
                 })
                 
                 # Navigate to next tab
@@ -224,6 +234,14 @@ def show_review_form():
     st.markdown(f"**Time:** {st.session_state.meeting_data.get('time', 'Not specified')}")
     st.markdown(f"**Duration:** {st.session_state.meeting_data.get('duration', 'Not specified')} minutes")
     st.markdown(f"**Team:** {st.session_state.meeting_data.get('team_agent', 'Not specified')}")
+    
+    # Display meeting link if available
+    meeting_link = st.session_state.meeting_data.get('meeting_link', '')
+    if meeting_link:
+        st.markdown(f"**Meeting Link:** [{meeting_link}]({meeting_link})")
+    else:
+        st.markdown("**Meeting Link:** Not specified")
+        
     st.markdown(f"**Description:**")
     st.markdown(f"```\n{st.session_state.meeting_data.get('description', 'Not specified')}\n```")
     
@@ -260,7 +278,8 @@ def submit_meeting_request():
                 "date": str(st.session_state.meeting_data.get('date')),
                 "time": st.session_state.meeting_data.get('time'),
                 "duration": st.session_state.meeting_data.get('duration'),
-                "team_agent": st.session_state.meeting_data.get('team_agent')
+                "team_agent": st.session_state.meeting_data.get('team_agent'),
+                "meeting_link": st.session_state.meeting_data.get('meeting_link', '')
             }
             
             # Create meeting request
