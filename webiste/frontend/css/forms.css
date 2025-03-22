@@ -1,0 +1,208 @@
+/* Form styling */
+.form-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2.5rem;
+    background: rgba(36, 0, 70, 0.7);
+    backdrop-filter: blur(20px);
+    border-radius: 18px;
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    box-shadow: var(--card-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.form-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 150px;
+    background: var(--gradient-purple);
+    filter: blur(80px);
+    opacity: 0.1;
+    border-radius: 50%;
+    z-index: -1;
+}
+
+.form-header {
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.form-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: var(--gradient-purple);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.75rem;
+}
+
+.form-description {
+    font-size: 1.1rem;
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.form-header::after {
+    content: '';
+    display: block;
+    width: 120px;
+    height: 4px;
+    background: var(--gradient-purple);
+    border-radius: 2px;
+    margin-top: 0.5rem;
+}
+
+/* Navigation pills */
+.nav-pills {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 0.75rem;
+    background: rgba(36, 0, 70, 0.5);
+    border-radius: 16px;
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    box-shadow: var(--card-shadow);
+}
+
+.nav-pill {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.nav-pill:hover {
+    color: var(--text);
+    background: rgba(157, 78, 221, 0.1);
+}
+
+.nav-pill.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 4px 20px rgba(157, 78, 221, 0.3);
+}
+
+/* Streamlit element styling */
+.stForm {
+    background: rgba(36, 0, 70, 0.3);
+    border-radius: 16px;
+    padding: 0;
+    margin-top: 1.5rem;
+    border: 1px solid rgba(157, 78, 221, 0.1);
+}
+
+.stForm > div {
+    border-radius: 16px;
+    padding: 2rem;
+}
+
+/* Streamlit headers inside forms */
+.stForm h3 {
+    color: var(--text);
+    margin: 1.5rem 0;
+    font-weight: 700;
+    font-size: 1.4rem;
+    background: var(--gradient-purple);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border-bottom: 2px solid rgba(157, 78, 221, 0.2);
+    padding-bottom: 0.5rem;
+}
+
+/* First header in form doesn't need top margin */
+.stForm h3:first-of-type {
+    margin-top: 0;
+}
+
+/* Labels inside forms */
+.stForm label {
+    color: var(--primary-light) !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+/* Text inputs in forms */
+.stForm [data-testid="stTextInput"] input {
+    background-color: rgba(60, 9, 108, 0.5) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    border-radius: 10px !important;
+    color: var(--text) !important;
+    padding: 12px 16px !important;
+    transition: var(--transition-smooth);
+}
+
+.stForm [data-testid="stTextInput"] input:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.15) !important;
+}
+
+/* Textarea in forms */
+.stForm textarea {
+    background-color: rgba(60, 9, 108, 0.5) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    border-radius: 10px !important;
+    color: var(--text) !important;
+    padding: 12px 16px !important;
+    transition: var(--transition-smooth);
+}
+
+.stForm textarea:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.15) !important;
+}
+
+/* Select boxes in forms */
+.stForm [data-testid="stSelectbox"] > div {
+    background-color: rgba(60, 9, 108, 0.5) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    border-radius: 10px !important;
+    color: var(--text) !important;
+    transition: var(--transition-smooth);
+}
+
+.stForm [data-testid="stSelectbox"] > div:hover {
+    border-color: var(--primary-color) !important;
+}
+
+/* Tab buttons */
+[data-testid="baseButton-secondary"] {
+    background: rgba(36, 0, 70, 0.5) !important;
+    color: var(--text) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    transition: var(--transition-smooth);
+}
+
+[data-testid="baseButton-secondary"]:hover {
+    background: rgba(60, 9, 108, 0.7) !important;
+    border-color: rgba(157, 78, 221, 0.4) !important;
+}
+
+[data-testid="baseButton-primary"] {
+    background: var(--gradient-purple) !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3) !important;
+}
+
+/* Form submit button with emoji */
+button[data-testid="FormSubmitButton"] {
+    background: var(--gradient-purple) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    padding: 0.75rem !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3) !important;
+    transition: var(--transition-smooth) !important;
+    margin-top: 1.5rem !important;
+}
+
+button[data-testid="FormSubmitButton"]:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 25px rgba(157, 78, 221, 0.4) !important;
+} 
