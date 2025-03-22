@@ -1,3 +1,4 @@
 .idea/
-.env
 *venv*
+.env*
+firebase-credentials.json

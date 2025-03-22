@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from utils.common import API_BASE_URL
+from utils.common import API_BASE_URL, ROLES
 
 def show_login():
     """Show login form and handle authentication"""
@@ -65,7 +65,7 @@ def show_signup():
         name = st.text_input("Full Name")
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-        role = st.selectbox("Role", ["Frontend", "Backend", "HR", "Marketing", "Sales", "Support"])
+        role = st.selectbox("Role", ROLES)
         submitted = st.form_submit_button("Sign Up", use_container_width=True)
         
         if submitted:

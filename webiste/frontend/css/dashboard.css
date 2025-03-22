@@ -299,4 +299,98 @@
 .dashboard-stat-label {
     color: var(--text-light);
     font-size: 0.95rem;
+}
+
+/* Dashboard styles */
+
+/* Dashboard header styling */
+.dashboard-header {
+    padding: 10px 0 20px 0;
+}
+.dashboard-subtitle {
+    color: #666;
+    margin-top: -10px;
+}
+
+/* User context info */
+.user-context {
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+/* Meeting item styling */
+.meeting-item {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #e6e6e6;
+    border-radius: 5px;
+    background-color: white;
+}
+
+.meeting-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.meeting-title {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.meeting-date {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Status badges */
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: white;
+}
+.status-badge.pending { background-color: orange; }
+.status-badge.accepted { background-color: green; }
+.status-badge.declined { background-color: red; }
+.status-badge.completed { background-color: blue; }
+
+/* Purple backgrounds for content */
+.purple-bg {
+    background: rgba(60, 9, 108, 0.3);
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Custom containers */
+.description-box, .attachment-box, .response-box {
+    background-color: rgba(60, 9, 108, 0.3) !important;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+/* Status summary cards */
+.status-count-card {
+    background-color: white;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    margin: 20px 0;
 } 
