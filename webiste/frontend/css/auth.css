@@ -1,0 +1,197 @@
+/* Auth containers */
+.auth-container {
+    max-width: 480px;
+    margin: 2rem auto;
+    background: rgba(36, 0, 70, 0.7);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 3rem;
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    box-shadow: var(--card-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-container::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 200px;
+    height: 200px;
+    background: var(--gradient-purple);
+    filter: blur(90px);
+    opacity: 0.1;
+    border-radius: 50%;
+    z-index: -1;
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.auth-logo {
+    font-size: 2.25rem;
+    font-weight: 800;
+    background: var(--gradient-purple);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.auth-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+}
+
+.auth-subtitle {
+    color: var(--text-light);
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.auth-label {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.auth-input {
+    background: rgba(60, 9, 108, 0.5);
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    border-radius: 10px;
+    padding: 0.85rem 1.25rem;
+    color: var(--text);
+    transition: var(--transition-smooth);
+}
+
+.auth-input:focus {
+    border-color: rgba(157, 78, 221, 0.5);
+    box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.15);
+}
+
+.auth-button {
+    background: var(--gradient-purple);
+    color: white;
+    font-weight: 600;
+    padding: 0.85rem;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    margin-top: 0.5rem;
+    box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3);
+}
+
+.auth-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(157, 78, 221, 0.4);
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: 2rem;
+    color: var(--text-light);
+}
+
+.auth-link {
+    color: var(--primary-light);
+    text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition-smooth);
+}
+
+.auth-link:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    color: var(--text-light);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex-grow: 1;
+    height: 1px;
+    background: rgba(157, 78, 221, 0.2);
+}
+
+.social-auth {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.social-button {
+    background: rgba(60, 9, 108, 0.5);
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    border-radius: 10px;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    color: var(--text);
+}
+
+.social-button:hover {
+    background: rgba(60, 9, 108, 0.7);
+    border-color: rgba(157, 78, 221, 0.4);
+}
+
+/* Form inputs with icons */
+.input-with-icon {
+    position: relative;
+    margin-bottom: 1.25rem;
+}
+
+.input-with-icon input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    background: rgba(21, 21, 48, 0.7);
+    border: 1px solid rgba(108, 99, 255, 0.15);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    transition: var(--transition-smooth);
+}
+
+.input-with-icon input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+.input-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+    font-size: 1.125rem;
+} 
