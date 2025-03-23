@@ -37,10 +37,6 @@ class DataBase:
 
 	def query(self, query: str):
 		# do a vector search
-		# if "vector" in query:
-		# 	vector = query["vector"]
-		# 	vector = np.array(vector)
-		# 	return [x for x in self.data if np.dot(x.vector, vector) > 0.5]
 		embedding = get_embedding(query)
 		scores = []
 		for d in self.data:
@@ -66,8 +62,8 @@ query_database = db.query
 insert_database = db.insert
 delete_database = db.delete
 
-# insert some data
-with open("files/database_test.json", "r", encoding="utf-8") as f:
+# load data
+with open("json_files/database_test.json", "r", encoding="utf-8") as f:
 	data = json.load(f)
 for d in data:
 	insert_database(Document(d))
@@ -75,10 +71,10 @@ for d in data:
 
 if __name__ == "__main__":
 	# test
-	query = "What is the event name?"
+	query = input("Enter a query: ")
 	results = query_database(query)
 	print(results)
 	# add more data
 	insert_database(Document({"id": 100, "vector": [0.1, 0.2, 0.3], "name": "Event 1", "date": "2022-01-01"}))
 	# save data
-	db.save_data("files/database_test_saved.json")
+	db.save_data("json_files/database_test_saved.json")
