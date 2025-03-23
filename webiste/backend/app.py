@@ -212,6 +212,20 @@ def create_meeting(current_user):
         # Add meeting to database
         meeting_id = firebase.create_meeting(meeting.to_dict())
         
+        # Also add to local appointments.json file
+        try:
+            # Load existing appointments
+            appointments = manage_appointments.load_appointments()
+            
+            # Add this appointment
+            date_str = data['date']
+            time_str = data['time']
+            manage_appointments.add_appointment(appointments, date_str, time_str, meeting_id)
+            
+            print(f"Successfully added appointment to local file: {date_str} {time_str} -> {meeting_id}")
+        except Exception as local_err:
+            print(f"Warning: Could not add appointment to local file: {str(local_err)}")
+        
         return jsonify({
             'message': 'Meeting created successfully',
             'meeting_id': meeting_id,
@@ -273,6 +287,22 @@ def update_meeting(current_user, meeting_id):
         # Update meeting status
         if 'status' in data:
             firebase.update_meeting_status(meeting_id, data['status'])
+            
+            # If status is 'canceled' or 'completed', remove from local appointments.json
+            if data['status'].lower() in ['canceled', 'cancelled', 'completed']:
+                try:
+                    # Load appointments
+                    appointments = manage_appointments.load_appointments()
+                    
+                    # Delete the appointment with this meeting_id
+                    success = manage_appointments.delete_appointment(appointments, appointment_id=meeting_id)
+                    
+                    if success:
+                        print(f"Successfully removed canceled/completed meeting {meeting_id} from local file")
+                    else:
+                        print(f"Meeting {meeting_id} not found in local appointments file")
+                except Exception as local_err:
+                    print(f"Warning: Could not update local appointments file: {str(local_err)}")
         
         # Update meeting response
         if 'response' in data and current_user['role'] == meeting['team_agent']:
