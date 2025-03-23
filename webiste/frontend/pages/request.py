@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 import time
+import pandas as pd
 from utils.common import API_BASE_URL, ROLES
 
 # Define file types to be uploaded
@@ -107,12 +108,21 @@ def show_meeting_details_form():
             help="Provide a link for participants to join the meeting"
         )
         
-        # Team agent selection
+        # Get user's current role
+        current_user_role = st.session_state.user_info.get('role', '')
+        
+        # Filter out the user's own role from available teams
+        available_teams = [role for role in ROLES if role.lower() != current_user_role.lower()]
+        
+        # Display a message about not being able to select own team
+        st.info("You cannot select your own team. The dropdown below shows only other teams.")
+        
+        # Team agent selection with filtered options
         team_agent = st.selectbox(
             "Select Team",
-            ROLES,
-            index=ROLES.index(st.session_state.meeting_data.get('team_agent', ROLES[0])) if st.session_state.meeting_data.get('team_agent') in ROLES else 0,
-            help="Choose the team you want to meet with"
+            available_teams,
+            index=0,
+            help="Choose the team you want to meet with (you cannot select your own team)"
         )
         
         # Description

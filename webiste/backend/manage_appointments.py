@@ -110,8 +110,20 @@ def delete_appointment(appointments, date_time=None, appointment_id=None):
     print("Appointment not found.")
     return False
 
-def cleanup_past(appointments):
-    """Remove all past appointments"""
+def cleanup_past(appointments=None):
+    """
+    Remove all past appointments
+    
+    Args:
+        appointments: Optional appointments dictionary. If None, will load from file.
+    
+    Returns:
+        int: Number of appointments removed
+    """
+    # If no appointments provided, load them from file
+    if appointments is None:
+        appointments = load_appointments()
+    
     now = datetime.now()
     current_date_time = now.strftime("%Y-%m-%d %H:%M")
     
@@ -138,6 +150,11 @@ def cleanup_past(appointments):
     
     return len(to_remove)
 
+# Alias for cleanup_past for backward compatibility
+def cleanup_meetings():
+    """Alias for cleanup_past, provided for backward compatibility"""
+    return cleanup_past()
+
 def get_earliest_meeting():
     """
     Get the earliest upcoming meeting
@@ -146,8 +163,10 @@ def get_earliest_meeting():
         dict: Dictionary with datetime and appointment_id, or None if no appointments
     """
     # Load appointments and clean up past ones
+    # cleanup_past()  # This will automatically load, clean up, and save appointments
+    
+    # Now load the cleaned appointments
     appointments = load_appointments()
-    cleanup_past(appointments)
     
     # If no appointments, return None
     if not appointments:
@@ -184,27 +203,33 @@ def main():
     
     args = parser.parse_args()
     
-    # Load appointments
-    appointments = load_appointments()
-    
     if args.command == 'list' or args.command is None:
+        # Load appointments and display them
+        appointments = load_appointments()
         display_appointments(appointments)
     
     elif args.command == 'add':
+        # Load appointments and add a new one
+        appointments = load_appointments()
         add_appointment(appointments, args.date, args.time, args.id)
 
     elif args.command == 'earliest':
+        # Get the earliest meeting (cleanup is handled inside this function)
         earliest_meeting = get_earliest_meeting()
         print(earliest_meeting)
     
     elif args.command == 'delete':
+        # Load appointments and delete one
         if not args.datetime and not args.id:
             print("Error: You must specify either --datetime or --id")
             return
+        appointments = load_appointments()
         delete_appointment(appointments, args.datetime, args.id)
 
     elif args.command == 'cleanup':
-        cleanup_past(appointments)
+        # Call cleanup_past without arguments - it will handle loading and saving
+        removed = cleanup_past()
+        print(f"Cleaned up {removed} past appointments")
 
 if __name__ == "__main__":
     main() 

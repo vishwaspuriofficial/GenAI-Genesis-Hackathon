@@ -685,6 +685,22 @@ def get_meeting_short_info(meeting_id):
     meeting_info = firebase.get_meeting_short_info(meeting_id)
     return jsonify(meeting_info)
 
+
+@app.route('/api/meetings/cleanup', methods=['POST'])
+def cleanup_meetings():
+    """
+    Cleanup past meetings from the appointments.json file
+    
+    Returns:
+        JSON with message and count of removed appointments
+    """
+    removed_count = manage_appointments.cleanup_meetings()
+    return jsonify({
+        "message": "Past appointments cleaned up successfully",
+        "removed_count": removed_count,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }), 200
+
 # ================================================ API CALLING FOR THE AI TEAM ================================================
 # File download endpoints
 @app.route('/api/files/download', methods=['GET', 'POST'])

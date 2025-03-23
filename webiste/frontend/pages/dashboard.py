@@ -33,8 +33,8 @@ def show_dashboard_page():
         
         view_mode = st.radio(
             "View Mode",
-            options=["My Requests", "Team Requests", "All"],
-            help="Filter meetings based on your role"
+            options=["My Requests", "Other Team Requests", "All Requests"],
+            help="Filter meetings based on your role: 'My Requests' shows requests you created, 'Other Team Requests' shows requests assigned to your team"
         )
         
         status_filter = st.multiselect(
@@ -78,6 +78,16 @@ def show_dashboard_page():
     # Display meetings summary
     display_meetings_summary(sorted_meetings)
     
+    # Display a header based on view mode
+    if view_mode == "My Requests":
+        st.subheader("📝 My Meeting Requests")
+        st.caption("Requests you've created for other teams")
+    elif view_mode == "Other Team Requests":
+        st.subheader("📬 Requests Assigned to Your Team")
+        st.caption("Requests from other teams that need your team's attention")
+    else:
+        st.subheader("🗂 All Meeting Requests")
+    
     # Display meetings using pure Streamlit components
     for meeting in sorted_meetings:
         display_meeting_card_pure_streamlit(meeting, user_role)
@@ -112,12 +122,17 @@ def filter_meetings(meetings, user_role, user_id, view_mode, status_filter, hide
             if 'test' in requester_name or 'test' in requester_email:
                 continue
         
-        # Filter by view mode
-        if view_mode == "My Requests" and meeting.get('requester_id') != user_id:
-            continue
-        elif view_mode == "Team Requests" and meeting.get('team_agent') != user_role:
-            continue
+        # Get meeting properties for filtering
+        is_my_request = meeting.get('requester_id') == user_id
+        is_for_my_team = meeting.get('team_agent') == user_role
         
+        # Filter by view mode
+        if view_mode == "My Requests" and not is_my_request:
+            continue
+        elif view_mode == "Other Team Requests" and not is_for_my_team:
+            continue
+        # If view_mode is "All Requests", include everything
+            
         # Filter by status
         if status_filter and meeting.get('status') not in status_filter:
             continue
@@ -161,25 +176,36 @@ def display_meeting_card_pure_streamlit(meeting, user_role):
     meeting_id = meeting.get('id')
     status = meeting.get('status', 'pending')
     is_team_agent = user_role == meeting.get('team_agent')
+    is_requester = st.session_state.user_info.get('id') == meeting.get('requester_id')
     
     # Create a bordered container for each meeting
     with st.container():
+        # Determine card class based on whether it's the user's own request or for their team
+        card_class = "meeting-card"
+        if is_requester:
+            card_class += " meeting-card-own"
+            indicator_class = "your-request-indicator"
+            indicator_text = "🔹 Your Request"
+        elif is_team_agent:
+            card_class += " meeting-card-team"
+            indicator_class = "team-request-indicator"
+            indicator_text = "🔸 For Your Team"
+        
+        # Apply card styling using markdown with HTML
+        st.markdown(f'<div class="{card_class}">', unsafe_allow_html=True)
+        
+        # Add a visual indicator
+        if is_requester or is_team_agent:
+            st.markdown(f'<div class="{indicator_class}">{indicator_text}</div>', unsafe_allow_html=True)
+        
         # Header row with title and status
         col1, col2 = st.columns([5, 1])
         with col1:
             st.subheader(meeting.get('title', 'No Title'))
         with col2:
-            # Color-coded status indicator using Streamlit's colored text
-            if status == "pending":
-                st.markdown("#### :orange[PENDING]")
-            elif status == "accepted":
-                st.markdown("#### :green[ACCEPTED]")
-            elif status == "declined":
-                st.markdown("#### :red[DECLINED]")
-            elif status == "completed":
-                st.markdown("#### :blue[COMPLETED]")
-            else:
-                st.markdown(f"#### {status.upper()}")
+            # Color-coded status indicator using HTML/CSS
+            status_class = f"status-badge status-{status.lower()}"
+            st.markdown(f'<div class="{status_class}">{status.upper()}</div>', unsafe_allow_html=True)
         
         # Meeting details in an expander
         with st.expander("View Meeting Details"):
@@ -188,7 +214,6 @@ def display_meeting_card_pure_streamlit(meeting, user_role):
             
             # Description section
             st.markdown("**Description:**")
-            # Using st.code for purple background effect
             st.code(meeting.get('description', 'No description provided'), language=None)
             
             # Meeting details using columns
@@ -248,27 +273,12 @@ def display_meeting_card_pure_streamlit(meeting, user_role):
                         update_meeting_status(meeting_id, "declined")
                         st.success("Meeting declined!")
                         st.rerun()
-            
-            # Response form for team agent
-            if is_team_agent:
-                with st.form(key=f"response_form_{meeting_id}"):
-                    st.markdown("### Your Response")
-                    response_text = st.text_area(
-                        "Response message:",
-                        value=meeting.get('response', ''),
-                        height=100,
-                        placeholder="Enter your response here..."
-                    )
-                    
-                    submitted = st.form_submit_button("Submit Response")
-                    
-                    if submitted and response_text:
-                        update_meeting_response(meeting_id, response_text)
-                        st.success("Response submitted successfully!")
-                        st.rerun()
         
-        # Add separator between meetings
-        st.divider()
+        # Close the card div
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Add spacing between cards
+        st.write("")
 
 def update_meeting_status(meeting_id, status):
     """Update the status of a meeting"""
