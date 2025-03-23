@@ -1,3 +1,4 @@
-*.json
-*.pdf
-.env
+.idea/
+*venv*
+.env*
+firebase-credentials.json

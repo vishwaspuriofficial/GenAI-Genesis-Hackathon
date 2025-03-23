@@ -1,0 +1,86 @@
+/* Custom Streamlit elements */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea {
+    background: rgba(36, 0, 70, 0.7) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+    color: var(--text) !important;
+    font-family: 'Inter', sans-serif !important;
+    box-shadow: none !important;
+    transition: var(--transition-smooth) !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 15px rgba(157, 78, 221, 0.3) !important;
+}
+
+.stButton > button {
+    background: var(--gradient-purple) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 14px 28px !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    transition: var(--transition-smooth) !important;
+    font-family: 'Inter', sans-serif !important;
+    box-shadow: var(--card-shadow) !important;
+}
+
+/* Make schedule meeting button green */
+button[data-testid="FormSubmitButton"] {
+    background: linear-gradient(135deg, var(--success), var(--accent)) !important;
+}
+
+/* Streamlit selectbox styling */
+.stSelectbox > div > div {
+    background: rgba(36, 0, 70, 0.7) !important;
+    border: 1px solid rgba(157, 78, 221, 0.2) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    transition: var(--transition-smooth) !important;
+}
+
+.stSelectbox > div > div:hover {
+    border-color: var(--primary-color) !important;
+}
+
+/* Streamlit tabs styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 1rem;
+    background: rgba(36, 0, 70, 0.5);
+    border-radius: 16px;
+    padding: 0.5rem;
+    border: 1px solid rgba(157, 78, 221, 0.2);
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 12px;
+    padding: 0.75rem 1.5rem;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: var(--text);
+    background: rgba(157, 78, 221, 0.1);
+}
+
+.stTabs [aria-selected="true"] {
+    background: var(--primary-color) !important;
+    color: white !important;
+    box-shadow: 0 4px 20px rgba(157, 78, 221, 0.3);
+}
+
+/* Form container styling */
+.stForm > div {
+    background: rgba(36, 0, 70, 0.5);
+    border-radius: 18px;
+    padding: 2rem;
+    border: 1px solid rgba(157, 78, 221, 0.2);
+    box-shadow: var(--card-shadow);
+} 
