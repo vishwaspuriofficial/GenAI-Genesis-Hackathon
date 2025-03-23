@@ -12,11 +12,9 @@ class Document:
 	"""
 	Document class to store the data
 	The json_data must have the following fields:
-	- id: unique identifier
 	- vector: vector representation of the document
 	"""
 	def __init__(self, json_data):
-		self.id = json_data["id"]
 		self.vector = json_data["vector"]
 		self.name = json_data.get("name")
 		self.date = json_data.get("date")
