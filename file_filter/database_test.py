@@ -1,10 +1,12 @@
 # This file is only for testing the file filter functionality
+import os
 import json
 import numpy as np
 from utils import *
+from os.path import join
 
 __all__ = ['query_database', 'insert_database', 'delete_database', 'db', 'Document']
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class Document:
 	"""
@@ -63,7 +65,8 @@ insert_database = db.insert
 delete_database = db.delete
 
 # load data
-with open("json_files/database_test.json", "r", encoding="utf-8") as f:
+with open("json_files/database_test.json",
+		  "r", encoding="utf-8") as f:
 	data = json.load(f)
 for d in data:
 	insert_database(Document(d))

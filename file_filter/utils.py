@@ -3,7 +3,7 @@ import json
 import openai
 import numpy as np
 
-__all__ = ['get_embedding']
+__all__ = ['get_embedding', 'check_loaded', 'set_loaded']
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -37,10 +37,11 @@ def check_loaded(file_path: str) -> bool:
     """
     with open("json_files/loaded_files.json", "r", encoding="utf-8") as json_file:
         with open(file_path, "rb") as f:
-            if file in data:
+            content = f.read()
+            fingerprint = hash(content)
+            data = json.load(json_file)
+            if fingerprint in data:
                 return True
-            return False
-
     return False
 
 
@@ -50,9 +51,10 @@ def set_loaded(file):
     :param file: File name
     :return:
     """
-    # with open("json_files/database_test.json", "r", encoding="utf-8") as f:
-    #     data = json.load(f)
-    # data.append({"name": file})
-    # with open("json_files/database_test.json", "w", encoding="utf-8") as f:
-    #     json.dump(data, f, ensure_ascii=False, indent=4)
-    return # temporary
+    with open("json_files/loaded_files.json", "w", encoding="utf-8") as json_file:
+        with open(file, "rb") as f:
+            content = f.read()
+            fingerprint = hash(content)
+            data = json.load(json_file)
+            data.append(fingerprint)
+            json.dump(data, json_file, ensure_ascii=False, indent=4)
