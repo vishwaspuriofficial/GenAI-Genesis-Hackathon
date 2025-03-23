@@ -96,7 +96,7 @@ The Database returned the following results:
     
 
 
-def update_database():
+def update_database_from_raw_files():
     """
     This function scans all the files present in the firebase (currently we mock it using the `raw_files` directory)
     and updates the database with the new entries.
@@ -124,4 +124,4 @@ def update_database():
 
 
 if __name__ == "__main__":
-    update_database()
+    update_database_from_raw_files()

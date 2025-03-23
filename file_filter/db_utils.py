@@ -53,7 +53,6 @@ def query_database(query: str):
     for doc in docs:
         temp = doc.to_dict()
         temp = {key: value for key, value in temp.items() if key != "vector"}
-        # print(f"{doc.id} => {temp}")
         answers.append(temp)
     return answers
 
