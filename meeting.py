@@ -5,6 +5,7 @@ import speech_recognition as sr
 import pyttsx3
 import random
 import asyncio
+from agent.ok import getAnswer
 
 async def run_meeting(meetingInfo):
     """Run the meeting process asynchronously."""
@@ -59,9 +60,9 @@ async def run_meeting(meetingInfo):
         speak(random.choice(thinking_phrases))
         return
 
-    def get_AI_response(question):
-        """Simulate AI response generation."""
-        return f"Thank you for the question: {question}"
+    # def get_AI_response(question):
+    #     """Simulate AI response generation."""
+    #     return f"Thank you for the question: {question}"
 
     # Enter the name "Agent"
     while True:
@@ -112,10 +113,10 @@ async def run_meeting(meetingInfo):
             except sr.WaitTimeoutError:
                 # No speech detected, safe to greet
                 print("Room is silent. Greeting the team.")
-                speak(f"Hi {teamName}")
+                speak(f"Hi {teamName} Team!")
             except sr.UnknownValueError:
                 print("Could not understand audio, assuming silence.")
-                speak(f"Hi {teamName}")
+                speak(f"Hi {teamName} Team!")
             except sr.RequestError as e:
                 print(f"Error checking room silence: {e}. Skipping greeting.")
 
@@ -154,7 +155,7 @@ async def run_meeting(meetingInfo):
                             speak_while_fetching()
 
                             try:
-                                answer = get_AI_response(context_text)
+                                answer = getAnswer(context_text)
                                 print("Answer received:", answer)
                                 speak(answer)
                                 continue
@@ -168,7 +169,7 @@ async def run_meeting(meetingInfo):
                         except sr.RequestError as e:
                             print(f"Could not request results for context; {e}")
                     
-                    elif "thank you for attending" or "thanks for attending" in text:
+                    elif "thank you for attending" in text or "thanks for attending" in text:
                         print("End phrase detected. Ending the meeting...")
                         while True:
                             try:
