@@ -18,5 +18,4 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max file size
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png'}
 
-    FASTAPI_PORT = int(os.environ.get('FASTAPI_PORT', 8001))
-    FASTAPI_HOST = os.environ.get('FASTAPI_HOST', '0.0.0.0')
+
