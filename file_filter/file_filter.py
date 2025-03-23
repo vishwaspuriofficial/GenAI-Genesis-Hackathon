@@ -64,7 +64,6 @@ Text:
             parsed = json.loads(cleaned)
             for item in parsed:
                 item["vector"] = get_embedding(json.dumps(item)).tolist()
-                item["id"] = get_id(json.dumps(item))
             filtered = [item for item in parsed if "name" in item and "date" in item]
             all_items.extend(filtered)
         except json.JSONDecodeError as e:
@@ -72,16 +71,6 @@ Text:
             continue
 
     return all_items
-
-
-
-def get_id(text: str):
-    """
-    Given a text, return the unique identifier
-    :param text: Input text
-    :return: Unique identifier
-    """
-    return hash(text)
 
 
 def check_in_database(document) -> bool:
@@ -104,7 +93,7 @@ def update_database():
     :return:
     """
     # load all the files
-    files = os.listdir("json_files/raw_files")
+    files = os.listdir("raw_files")
     for file in files:
         print(f"Processing file: {file}") # for testing
         # if this file is loaded before, skip it
@@ -118,6 +107,8 @@ def update_database():
             if check_in_database(d):
                 continue
             insert_database(Document(d))
+        # mark the file as loaded
+        set_loaded(file)
 
 
 if __name__ == "__main__":
