@@ -35,10 +35,9 @@ db = client["sample_mflix"]
 collection = db["vector_embeddings"]
 databases = client.list_database_names()
 
-
 import bs4
 from langchain import hub
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import TextLoader, PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
@@ -65,14 +64,15 @@ _ = vector_store.add_documents(documents=all_splits)
 
 # Define prompt for question-answering
 prompt = PromptTemplate.from_template(
-    """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that 'I'm sorry, I don't have that information at the moment. Let me check and get back to you with the details.'. Use three sentences maximum and keep the answer concise.
+#     """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that 'I'm sorry, I don't have that information at the moment. Let me check and get back to you with the details.'. Use three sentences maximum and keep the answer concise.
+# Question: {question} 
+# Context: {context} 
+# Answer:"""
+    """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. Use three sentences maximum and keep the answer concise.
 Question: {question} 
 Context: {context} 
 Answer:"""
 )
-
-print(vector_store.similarity_search("What is the name of the ml paper?"))
-
 
 # Define state for application
 class State(TypedDict):
@@ -99,6 +99,9 @@ def generate(state: State):
 graph_builder = StateGraph(State).add_sequence([retrieve, generate])
 graph_builder.add_edge(START, "retrieve")
 graph = graph_builder.compile()
+def getAnswer(question):
+    response = graph.invoke({"question": question})
+    return response["answer"]
 
-response = graph.invoke({"question": "who wrote the ML paper?"})
-print(response["answer"])
+# response = graph.invoke({"question": "who wrote the ML paper?"})
+# print(response["answer"])
