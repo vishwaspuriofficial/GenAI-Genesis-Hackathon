@@ -60,7 +60,7 @@ Text:
         #     response += chunk.content
         response = llm.invoke(prompt)
         try:
-            cleaned = __clean_json_text(response)
+            cleaned = __clean_json_text(response.content)
             parsed = json.loads(cleaned)
             for item in parsed:
                 item["vector"] = get_embedding(json.dumps(item)).tolist()
@@ -98,9 +98,10 @@ def update_database():
         print(f"Processing file: {file}") # for testing
         # if this file is loaded before, skip it
         if check_loaded(file):
+            print(f"\tFile {file} already loaded")
             continue
         # load and format the file
-        documents = summarize_file(os.path.join("json_files/raw_files", file))
+        documents = summarize_file(os.path.join("raw_files", file))
         # for each document, check if it is already in the database
         # if not, insert it
         for d in documents:
