@@ -647,6 +647,14 @@ def get_earliest_meeting():
     appointment = manage_appointments.get_earliest_meeting()
     return jsonify({"appointment": appointment})
 
+@app.route('/api/meeting-short-info/<meeting_id>', methods=['GET'])
+def get_meeting_short_info(meeting_id):
+    """
+    Get short meeting information by ID
+    """
+    meeting_info = firebase.get_meeting_short_info(meeting_id)
+    return jsonify(meeting_info)
+
 # ================================================ API CALLING FOR THE AI TEAM ================================================
 # File download endpoints
 @app.route('/api/files/download', methods=['GET', 'POST'])
