@@ -395,7 +395,6 @@ class FirebaseService:
             
         return None
 
-
     def get_meeting_short_info(self, meeting_id):
         """Get short meeting information by ID
         
@@ -412,7 +411,6 @@ class FirebaseService:
             }
             
         return None
-
     
     def download_files(self, files_urls):
         try:

@@ -202,7 +202,7 @@ def main():
             print("Error: You must specify either --datetime or --id")
             return
         delete_appointment(appointments, args.datetime, args.id)
-    
+
     elif args.command == 'cleanup':
         cleanup_past(appointments)
 

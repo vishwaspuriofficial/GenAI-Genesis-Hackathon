@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from werkzeug.exceptions import HTTPException
 from firebase_config import FirebaseService
 from models import User, Meeting, Attachment
@@ -32,6 +32,17 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
 
 
 CORS(app)
+
+# API Documentation routes
+@app.route('/api-docs')
+def api_docs():
+    """Serve the Swagger UI documentation page"""
+    return send_from_directory('.', 'swagger-ui.html')
+
+@app.route('/openapi.yaml')
+def openapi_spec():
+    """Serve the OpenAPI specification file"""
+    return send_from_directory('.', 'openapi.yaml')
 
 def allowed_file(filename):
     return '.' in filename and \
