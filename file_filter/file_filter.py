@@ -3,6 +3,7 @@ import re
 import json
 import dotenv
 from utils import *
+from db_utils import query_database
 from database_test import *
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -79,11 +80,20 @@ def check_in_database(document) -> bool:
     :param document: Document object
     :return: True if the document is in the database, False otherwise
     """
-    # for d in db.data:
-    #     if d.id == document.id:
-    #         return True
-    # return False
-    return False
+    db_response = query_database(json.dumps(document))
+    prompt = f"""
+Check if the following document is already in the database:
+\"\"\"
+{json.dumps(document, indent=2)}
+\"\"\"
+The Database returned the following results:
+\"\"\"
+{json.dumps(db_response, indent=2)}
+\"\"\"
+"""
+    response = llm.invoke(prompt)
+    return "Yes" in response.content
+    
 
 
 def update_database():
@@ -106,6 +116,7 @@ def update_database():
         # if not, insert it
         for d in documents:
             if check_in_database(d):
+                print(f"\tDocument already in the database")
                 continue
             insert_database(Document(d))
         # mark the file as loaded
