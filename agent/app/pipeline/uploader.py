@@ -1,6 +1,6 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PDFPlumberLoader
-from app.config.db import vector_store
+from config.db import vector_store
 
 def upload_file(file_path: str):
     loader = PDFPlumberLoader(file_path)

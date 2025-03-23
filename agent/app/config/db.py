@@ -1,7 +1,7 @@
 from langchain_mongodb import MongoDBAtlasVectorSearch
 from pymongo import MongoClient
 import os
-from app.config.embedding import embeddings
+from config.embedding import embeddings
 
 client = MongoClient(os.environ.get("MONGODB_CONNECTION_STRING"))
 db = client["sample_mflix"]
