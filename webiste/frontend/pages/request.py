@@ -279,7 +279,7 @@ def submit_meeting_request():
                 "time": st.session_state.meeting_data.get('time'),
                 "duration": st.session_state.meeting_data.get('duration'),
                 "team_agent": st.session_state.meeting_data.get('team_agent'),
-                "meeting_link": st.session_state.meeting_data.get('meeting_link', '')
+                "meeting_link": st.session_state.meeting_data.get('meeting_link')
             }
             
             # Create meeting request
