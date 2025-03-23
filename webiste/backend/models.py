@@ -24,7 +24,7 @@ class User:
 
 class Meeting:
     def __init__(self, title, description, date, time, duration, requester_id, 
-                 requester_name, requester_role, team_agent, status="pending"):
+                 requester_name, requester_role, team_agent, meeting_link, status="pending"):
         self.title = title
         self.description = description
         self.date = date
@@ -39,6 +39,7 @@ class Meeting:
         self.attachments = []
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
+        self.meeting_link = meeting_link
 
     def to_dict(self):
         """Convert meeting object to dictionary for Firestore storage"""
@@ -55,6 +56,7 @@ class Meeting:
             "status": self.status,
             "response": self.response,
             "attachments": self.attachments,
+            "meeting_link": self.meeting_link,
             # created_at and updated_at will be set by Firestore SERVER_TIMESTAMP
         }
 

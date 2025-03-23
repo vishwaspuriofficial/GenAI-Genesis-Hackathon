@@ -43,7 +43,7 @@ def main():
             show_request_page()
         elif st.session_state.page == 'dashboard':
             show_dashboard_page()
-        else:  
+        else:
             show_response_page()
 
 if __name__ == "__main__":

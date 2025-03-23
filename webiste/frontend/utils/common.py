@@ -6,7 +6,7 @@ import time
 import os
 
 # API Constants
-API_BASE_URL = "http://localhost:5001/api"
+API_BASE_URL = "http://localhost:8000/api"
 
 # Roles/Teams available in the system
 ROLES = ["Frontend", "Backend", "Design", "Product", "Marketing", "Sales"]

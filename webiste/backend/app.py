@@ -1,13 +1,23 @@
 from flask import Flask, request, jsonify, send_file
+from werkzeug.exceptions import HTTPException
 from firebase_config import FirebaseService
 from models import User, Meeting, Attachment
 from werkzeug.utils import secure_filename
 from functools import wraps
 from config import Config
+from flask_cors import CORS
 import jwt
 import os
 import uuid
 import datetime
+import io
+import zipfile
+import json
+import sys
+
+# Add directory to path for manage_appointments.py
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import manage_appointments
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = Config.UPLOAD_FOLDER
@@ -17,15 +27,12 @@ app.secret_key = Config.SECRET_KEY
 # Initialize Firebase
 firebase = FirebaseService()
 
-# Create uploads folder if it doesn't exist
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
-# Configure CORS
-from flask_cors import CORS
+
 CORS(app)
 
-# Helper function to check if a file extension is allowed
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
@@ -172,7 +179,7 @@ def create_meeting(current_user):
         data = request.get_json()
         
         # Check if all required fields are present
-        required_fields = ['title', 'description', 'date', 'time', 'duration', 'team_agent']
+        required_fields = ['title', 'description', 'date', 'time', 'duration', 'team_agent', 'meeting_link']
         for field in required_fields:
             if field not in data:
                 return jsonify({'message': f'Missing field: {field}'}), 400
@@ -187,7 +194,8 @@ def create_meeting(current_user):
             requester_id=current_user['id'],
             requester_name=current_user['name'],
             requester_role=current_user['role'],
-            team_agent=data['team_agent']
+            team_agent=data['team_agent'],
+            meeting_link=data['meeting_link']
         )
         
         # Add meeting to database
@@ -195,7 +203,7 @@ def create_meeting(current_user):
         
         return jsonify({
             'message': 'Meeting created successfully',
-            'meeting_id': meeting_id
+            'meeting_id': meeting_id,
         }), 201
     except Exception as e:
         print("Error creating meeting:", e)
@@ -370,13 +378,6 @@ def upload_file():
 
 @app.route('/api/team-upload', methods=['POST'])
 def upload_team_file():
-    """Upload files directly to a folder named after the team role"""
-    print("[DEBUG] Starting /api/team-upload endpoint with simplified folder structure")
-    print(f"[DEBUG] Request headers: {request.headers}")
-    print(f"[DEBUG] Request files: {request.files}")
-    print(f"[DEBUG] Request form: {request.form}")
-    
-    # Get the current user
     current_user = get_current_user()
     print(f"[DEBUG] Current user: {current_user}")
     
@@ -419,7 +420,6 @@ def upload_team_file():
     meeting_id = request.form.get('meeting_id')
     print(f"[DEBUG] Meeting ID: {meeting_id}")
     
-    # Create upload folder if it doesn't exist
     temp_dir = 'uploads'
     os.makedirs(temp_dir, exist_ok=True)
     
@@ -574,7 +574,6 @@ def simple_upload_file():
             "role": "product"  # Default role for testing
         }
     
-    # Get user's role for the folder name
     user_role = current_user.get('role')
     if not user_role:
         print(f"[DEBUG] User {current_user.get('email')} has no role")
@@ -628,6 +627,150 @@ def simple_upload_file():
         if os.path.exists(filepath):
             os.remove(filepath)
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/meeting/earliest', methods=['GET'])
+def get_earliest_meeting():
+    """
+    Get the earliest meeting
+    """
+    appointment = manage_appointments.get_earliest_meeting()
+    return jsonify({"appointment": appointment})
+
+# ================================================ API CALLING FOR THE AI TEAM ================================================
+# File download endpoints
+@app.route('/api/files/download', methods=['GET', 'POST'])
+def download_files():
+    """
+    Download multiple files as a ZIP archive
+    
+    Two methods supported:
+    1. POST: Request body should be a JSON with the following format:
+        {
+            "file_urls": ["url1", "url2", "url3"]
+        }
+    
+    2. GET: Query parameters should contain one or more file_url parameters:
+        /api/files/download?file_url=url1&file_url=url2&file_url=url3
+    
+    Returns a ZIP file containing all the requested files
+    """
+    try:
+        file_urls = []
+        
+        # Handle POST request with JSON body
+        if request.method == 'POST':
+            print("Handling POST request for file download")
+            data = request.json
+            if not data or 'file_urls' not in data or not isinstance(data['file_urls'], list) or len(data['file_urls']) == 0:
+                return jsonify({'error': 'Request must include a "file_urls" array with at least one URL'}), 400
+                
+            file_urls = data['file_urls']
+        
+        # Handle GET request with query parameters
+        elif request.method == 'GET':
+            print("Handling GET request for file download")
+            file_urls = request.args.getlist('file_url')
+            if not file_urls or len(file_urls) == 0:
+                return jsonify({'error': 'Request must include at least one "file_url" query parameter'}), 400
+        
+        print(f"Received request to download {len(file_urls)} files")
+        for i, url in enumerate(file_urls):
+            print(f"  File {i+1}: {url}")
+        
+        # Create a ZIP file in memory
+        memory_file = io.BytesIO()
+        with zipfile.ZipFile(memory_file, 'w') as zf:
+            # Add each file to the ZIP
+            for i, file_url in enumerate(file_urls):
+                print(f"Processing file {i+1}/{len(file_urls)}: {file_url}")
+                
+                # Download the file
+                file_content, content_type, filename = firebase.download_file_from_url(file_url)
+                
+                if file_content is None:
+                    print(f"Failed to download file: {file_url}")
+                    continue
+                    
+                # Ensure filename is unique in case of duplicates
+                if not filename or filename == '':
+                    filename = f"file_{i+1}"
+                    
+                # Add file extension if missing based on content type
+                if '.' not in filename:
+                    if content_type == 'application/pdf':
+                        filename += '.pdf'
+                    elif content_type == 'image/jpeg':
+                        filename += '.jpg'
+                    elif content_type == 'image/png':
+                        filename += '.png'
+                    elif content_type == 'text/plain':
+                        filename += '.txt'
+                    elif content_type == 'application/msword':
+                        filename += '.doc'
+                    elif content_type == 'application/vnd.ms-excel':
+                        filename += '.xls'
+                        
+                # Add the file to the ZIP
+                zf.writestr(filename, file_content)
+                print(f"Added {filename} to ZIP ({len(file_content)} bytes)")
+        
+        # Seek to the beginning of the file
+        memory_file.seek(0)
+        
+        # Send the ZIP file as a response
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        return send_file(
+            memory_file,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'files_{timestamp}.zip'
+        )
+        
+    except Exception as e:
+        print(f"Error downloading files: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error downloading files: {str(e)}'}), 500
+
+@app.route('/api/meetings/<meeting_id>/details', methods=['GET'])
+def get_meeting_details(meeting_id):
+    """
+    Get a meeting by its ID
+    
+    Args:
+        meeting_id: The unique identifier of the meeting
+        
+    Returns:
+        The meeting data or a 404 error if not found
+    """
+    try:
+        meeting = firebase.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({'error': f'Meeting with ID {meeting_id} not found'}), 404
+        return jsonify({'meeting': meeting})
+    except Exception as e:
+        print(f"Error getting meeting details: {str(e)}")
+        return jsonify({'error': f'Error getting meeting details: {str(e)}'}), 500
+
+@app.route('/api/meetings/<meeting_id>/files', methods=['GET'])
+def get_files_for_meeting(meeting_id):
+    """
+    Get all file URLs associated with a meeting
+    
+    Args:
+        meeting_id: The unique identifier of the meeting
+        
+    Returns:
+        A list of file URLs or a 404 error if meeting not found
+    """
+    try:
+        files = firebase.get_files_urls_by_meeting_id(meeting_id)
+        if files is None:
+            return jsonify({'error': f'Meeting with ID {meeting_id} not found'}), 404
+        return jsonify({'files': files})
+    except Exception as e:
+        print(f"Error getting meeting files: {str(e)}")
+        return jsonify({'error': f'Error getting meeting files: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG) 
+    app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG)
