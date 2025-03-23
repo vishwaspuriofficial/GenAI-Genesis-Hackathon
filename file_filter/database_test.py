@@ -3,7 +3,7 @@ import json
 import numpy as np
 from utils import *
 
-__all__ = ['query_database', 'insert_database', 'delete_database']
+__all__ = ['query_database', 'insert_database', 'delete_database', 'db', 'Document']
 
 
 class Document:

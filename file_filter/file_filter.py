@@ -2,7 +2,6 @@ import os
 import re
 import json
 import dotenv
-import asyncio
 from utils import *
 from database_test import *
 from langchain_community.document_loaders import PyPDFLoader
@@ -37,7 +36,7 @@ def __clean_json_text(text: str) -> str:
     return re.sub(r"```(?:json)?", "", text).strip()
 
 
-async def summarize_file(file_path: str):
+def summarize_file(file_path: str):
     """
     Load the file and extract a list of important items from its contents. Return ONLY valid JSON.
     :param file_path: Path to the input file
@@ -57,8 +56,9 @@ Text:
 \"\"\"
 """
         response = ""
-        async for chunk in llm.astream(prompt):
-            response += chunk.content
+        # for chunk in llm.astream(prompt):
+        #     response += chunk.content
+        response = llm.invoke(prompt)
         try:
             cleaned = __clean_json_text(response)
             parsed = json.loads(cleaned)
@@ -84,29 +84,17 @@ def get_id(text: str):
     return hash(text)
 
 
-# Main function
-async def main():
-    all_items = await summarize_file("json_files/data1.pdf")
-
-    # Save to JSON file
-    with open("json_files/data2.json", "w", encoding="utf-8") as f:
-        json.dump(all_items, f, indent=2, ensure_ascii=False)
-
-
-
-def check_loaded(file) -> bool:
+def check_in_database(document) -> bool:
     """
-    Check if the file is loaded before
-    :param file: File name
-    :return: True if the file is loaded before, False otherwise
+    Check if the document is already in the database
+    :param document: Document object
+    :return: True if the document is in the database, False otherwise
     """
-    # with open("json_files/database_test.json", "r", encoding="utf-8") as f:
-    #     data = json.load(f)
-    #     for d in data:
-    #         if d["name"] == file:
-    #             return True
+    # for d in db.data:
+    #     if d.id == document.id:
+    #         return True
     # return False
-    return False # temporary
+    return False
 
 
 def update_database():
@@ -118,12 +106,19 @@ def update_database():
     # load all the files
     files = os.listdir("json_files/raw_files")
     for file in files:
+        print(f"Processing file: {file}") # for testing
         # if this file is loaded before, skip it
         if check_loaded(file):
             continue
         # load and format the file
-        summarize_file(os.path.join("json_files/raw_files", file))
+        documents = summarize_file(os.path.join("json_files/raw_files", file))
+        # for each document, check if it is already in the database
+        # if not, insert it
+        for d in documents:
+            if check_in_database(d):
+                continue
+            insert_database(Document(d))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    update_database()
