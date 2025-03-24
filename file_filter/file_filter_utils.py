@@ -3,10 +3,11 @@ import re
 import json
 import dotenv
 from utils import *
-from db_utils import query_database
-from database_test import *
+from db_utils import query_database, insert_database
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+__all__ = ["summarize_file", "update_database_from_raw_files"]
 
 # Load API Key
 dotenv.load_dotenv()
@@ -48,14 +49,16 @@ def summarize_file(file_path: str):
     all_items = []
     for text in documents:
         prompt = f"""
-Extract a list of important items from the following text. Return ONLY valid JSON.
-Each item should at least include `name` and `date`. Other fields are optional.
+    Extract a list of important items from the following text. Return ONLY valid JSON.
+    Each item should at least include `name` and `date`. Other fields are optional.
+    Ensure the context is comprehensive by including details such as filename, description, and any relevant attachments.
 
-Text:
-\"\"\" 
-{text}
-\"\"\"
-"""
+    Filename: {os.path.basename(file_path)}
+    Text:
+    \"\"\" 
+    {text}
+    \"\"\"
+    """
         response = ""
         # for chunk in llm.astream(prompt):
         #     response += chunk.content
@@ -63,6 +66,8 @@ Text:
         try:
             cleaned = __clean_json_text(response.content)
             parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                parsed = [parsed]
             for item in parsed:
                 item["vector"] = get_embedding(json.dumps(item)).tolist()
             filtered = [item for item in parsed if "name" in item and "date" in item]
@@ -93,7 +98,6 @@ The Database returned the following results:
 """
     response = llm.invoke(prompt)
     return "Yes" in response.content
-    
 
 
 def update_database_from_raw_files():
@@ -115,10 +119,11 @@ def update_database_from_raw_files():
         # for each document, check if it is already in the database
         # if not, insert it
         for d in documents:
+            d = {k: v for k, v in d.items() if k != "vector"}
             if check_in_database(d):
                 print(f"\tDocument already in the database")
                 continue
-            insert_database(Document(d))
+            insert_database(d)
         # mark the file as loaded
         set_loaded(file)
 

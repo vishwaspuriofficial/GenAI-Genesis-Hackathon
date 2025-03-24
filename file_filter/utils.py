@@ -58,6 +58,7 @@ def check_loaded(file_path: str) -> bool:
     with open("json_files/loaded_files.json", "r", encoding="utf-8") as json_file:
         fingerprint = get_file_md5(os.path.join("raw_files", file_path))
         data = json.load(json_file)
+        # print(fingerprint, data)
         if fingerprint in data:
             return True
     return False

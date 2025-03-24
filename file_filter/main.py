@@ -4,7 +4,7 @@ import requests
 import json
 import os
 import dotenv
-from file_filter import up
+from file_filter_utils import update_database_from_raw_files
 from fastapi import FastAPI, Query
 from typing import List
 from pydantic import BaseModel
@@ -37,8 +37,9 @@ async def update_database(meeting_id: str = Query(..., description="The meeting 
     # Download all the files
     download_to_current_directory(files)
     # update the database
-
+    update_database_from_raw_files()
     return {"message": "Database updated successfully", "meeting_id": meeting_id, "files_processed": len(files)}
+
 
 if __name__ == '__main__':
     import uvicorn

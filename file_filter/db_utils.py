@@ -9,13 +9,16 @@ from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 
+__all__ = ['get_embedding', 'query_database', 'insert_database']
+
 dotenv.load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 cred = credentials.Certificate(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
-firebase_admin.initialize_app(cred)
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
 firestore_client = firestore.client()
 collection = firestore_client.collection("filter_data")
 
@@ -55,6 +58,15 @@ def query_database(query: str):
         temp = {key: value for key, value in temp.items() if key != "vector"}
         answers.append(temp)
     return answers
+
+
+def insert_database(data):
+    """
+    Insert data into the database
+    :param data: Data to be inserted
+    """
+    # print(f"inserting data: {data}")
+    collection.add(data)
 
 
 if __name__ == '__main__':
