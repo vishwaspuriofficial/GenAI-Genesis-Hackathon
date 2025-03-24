@@ -37,7 +37,7 @@ databases = client.list_database_names()
 
 import bs4
 from langchain import hub
-from langchain_community.document_loaders import TextLoader, PyPDFLoader
+from langchain_community.document_loaders import TextLoader, TextLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
@@ -46,7 +46,7 @@ from langchain_core.prompts import PromptTemplate
 
 
 # Load and chunk contents of the blog
-loader = PyPDFLoader("../test.pdf")
+loader = TextLoader("test.txt")
 docs = loader.load()
 # print(docs[0].page_content)
 vector_store = MongoDBAtlasVectorSearch.from_documents(
