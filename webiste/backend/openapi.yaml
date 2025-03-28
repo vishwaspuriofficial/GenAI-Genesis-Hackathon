@@ -891,6 +891,159 @@ paths:
                     type: string
                     example: 1.0.0
 
+  /api/update_database:
+    post:
+      tags:
+        - System
+      summary: Trigger database update in the AI server
+      description: Signal the AI server to update its database with new files
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: meeting_id
+          in: query
+          description: Optional meeting ID to process files for a specific meeting
+          required: false
+          schema:
+            type: string
+            example: abc123def456
+      responses:
+        '200':
+          description: Update triggered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Database update triggered in AI server
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/process_meeting:
+    post:
+      tags:
+        - Meetings
+      summary: Process meeting files with AI
+      description: Trigger the AI server to process all files associated with a meeting
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - meeting_id
+              properties:
+                meeting_id:
+                  type: string
+                  example: abc123def456
+      responses:
+        '200':
+          description: Meeting processing triggered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Meeting processing initiated
+        '400':
+          description: Bad request - missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/search:
+    get:
+      tags:
+        - Files
+      summary: Search document database
+      description: Search the AI document database using vector similarity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          description: The search query string
+          required: true
+          schema:
+            type: string
+            example: project deadlines and milestones
+        - name: meeting_id
+          in: query
+          description: Optional meeting ID to limit search to a specific meeting
+          required: false
+          schema:
+            type: string
+            example: abc123def456
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: ProjectMeeting.pdf
+                        date:
+                          type: string
+                          example: 2023-04-15
+                        data:
+                          type: object
+                          properties:
+                            content:
+                              type: string
+                              example: This is the content of the document...
+                            summary:
+                              type: string
+                              example: Meeting about project deadlines and milestones.
+                            topics:
+                              type: array
+                              items:
+                                type: string
+                              example: ["project", "deadlines", "milestones"]
+        '400':
+          description: Bad request - missing query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
     User:

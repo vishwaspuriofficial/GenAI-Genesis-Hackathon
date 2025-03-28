@@ -14,6 +14,7 @@ import io
 import zipfile
 import json
 import sys
+import requests
 
 # Add directory to path for manage_appointments.py
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -322,7 +323,6 @@ def upload_file():
     # Get the current user
     current_user = get_current_user()
     if current_user is None:
-        print("[DEBUG] No user is logged in for file upload")
         return jsonify({"error": "No user is logged in"}), 401
     
     # Check if user is admin or team
@@ -348,7 +348,6 @@ def upload_file():
     meeting_id = request.form.get('meeting_id')
     print(f"[DEBUG] Uploading file for meeting_id: {meeting_id}")
     
-    # If this is a team upload and we have a meeting ID, get the team_agent
     team_agent = None
     if is_team and meeting_id:
         meeting = firebase.get_meeting_by_id(meeting_id)
@@ -356,17 +355,15 @@ def upload_file():
             team_agent = meeting.get('team_agent')
             print(f"[DEBUG] Found team_agent for meeting: {team_agent}")
     
-    # Save file temporarily
     temp_dir = 'uploads'
     os.makedirs(temp_dir, exist_ok=True)
     filepath = os.path.join(temp_dir, secure_filename(file.filename))
     file.save(filepath)
     
-    # Set folder path based on role and team_agent
     if is_admin:
         folder = "attachments"
     elif team_agent:
-        folder = f"responses/{team_agent}"  # Using team_agent for organization
+        folder = f"responses/{team_agent}" 
     else:
         folder = "responses"
         
@@ -406,6 +403,10 @@ def upload_file():
                 print("[DEBUG] Failed to update meeting with response file")
         
         print(f"[DEBUG] File uploaded successfully. URL: {url}")
+
+        response = requests.post("http://localhost:8025/update_database?meeting_id=" + meeting_id)
+        print(f"[DEBUG] Announcement response: {response.json()}")
+
         response_data = {"url": url}
         if team_agent:
             response_data["team"] = team_agent
@@ -836,6 +837,137 @@ def get_files_for_meeting(meeting_id):
     except Exception as e:
         print(f"Error getting meeting files: {str(e)}")
         return jsonify({'error': f'Error getting meeting files: {str(e)}'}), 500
+
+# AI Server interaction routes
+@app.route('/api/update_database', methods=['POST'])
+@token_required
+def trigger_database_update(current_user):
+    """Trigger the AI server to update its database"""
+    try:
+        # Get optional meeting_id from request
+        meeting_id = request.args.get('meeting_id')
+        
+        # Construct the URL for the AI server
+        ai_server_url = "http://localhost:8025/update_database"
+        if meeting_id:
+            ai_server_url += f"?meeting_id={meeting_id}"
+        
+        # Make the request to the AI server
+        response = requests.post(ai_server_url)
+        
+        if response.status_code == 200:
+            return jsonify({
+                "status": "success",
+                "message": "Database update triggered in AI server",
+                "ai_response": response.json()
+            }), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"AI server returned status code {response.status_code}",
+                "ai_response": response.json() if response.content else None
+            }), 500
+            
+    except Exception as e:
+        print(f"Error triggering database update: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error communicating with AI server: {str(e)}"
+        }), 500
+
+@app.route('/api/process_meeting', methods=['POST'])
+@token_required
+def process_meeting_with_ai(current_user):
+    """Trigger the AI server to process files for a specific meeting"""
+    try:
+        # Get meeting_id from request body
+        data = request.get_json()
+        if not data or 'meeting_id' not in data:
+            return jsonify({"status": "error", "message": "Missing meeting_id parameter"}), 400
+            
+        meeting_id = data['meeting_id']
+        
+        # Check if meeting exists
+        meeting = firebase.get_meeting_by_id(meeting_id)
+        if not meeting:
+            return jsonify({"status": "error", "message": "Meeting not found"}), 404
+        
+        # Check if user has permission
+        if meeting['requester_id'] != current_user['id'] and meeting['team_agent'] != current_user['role']:
+            return jsonify({"status": "error", "message": "You do not have permission to process this meeting"}), 403
+        
+        # Make the request to the AI server
+        ai_server_url = "http://localhost:8025/process_meeting"
+        response = requests.post(
+            ai_server_url, 
+            json={"meeting_id": meeting_id}
+        )
+        
+        if response.status_code == 200:
+            return jsonify({
+                "status": "success",
+                "message": "Meeting processing initiated",
+                "ai_response": response.json()
+            }), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"AI server returned status code {response.status_code}",
+                "ai_response": response.json() if response.content else None
+            }), 500
+            
+    except Exception as e:
+        print(f"Error processing meeting with AI: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error communicating with AI server: {str(e)}"
+        }), 500
+
+@app.route('/api/search', methods=['GET'])
+@token_required
+def search_documents(current_user):
+    """Search the AI document database using vector similarity"""
+    try:
+        # Get query from request parameters
+        query = request.args.get('query')
+        if not query:
+            return jsonify({"status": "error", "message": "Missing query parameter"}), 400
+            
+        # Get optional meeting_id to limit search
+        meeting_id = request.args.get('meeting_id')
+        
+        # If meeting_id provided, check permissions
+        if meeting_id:
+            meeting = firebase.get_meeting_by_id(meeting_id)
+            if not meeting:
+                return jsonify({"status": "error", "message": "Meeting not found"}), 404
+            
+            if meeting['requester_id'] != current_user['id'] and meeting['team_agent'] != current_user['role']:
+                return jsonify({"status": "error", "message": "You do not have permission to search this meeting"}), 403
+        
+        # Construct the URL for the AI server
+        ai_server_url = f"http://localhost:8025/query_database?query={query}"
+        
+        # Make the request to the AI server
+        response = requests.get(ai_server_url)
+        
+        if response.status_code == 200:
+            return jsonify({
+                "results": response.json()
+            }), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"AI server returned status code {response.status_code}",
+                "ai_response": response.json() if response.content else None
+            }), 500
+            
+    except Exception as e:
+        print(f"Error searching documents: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error communicating with AI server: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG)

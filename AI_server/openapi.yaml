@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: AI Server API
+  description: |
+    API for AI functionality including file processing, database queries, and agent operations.
+    This server provides a unified RESTful API for document processing, database operations, and agent functionality.
+  version: 1.0.0
+  contact:
+    name: GenAI Genesis Hackathon Team
+servers:
+  - url: http://localhost:8025
+    description: Development server
+tags:
+  - name: Database
+    description: Database operations for vector search and retrieval
+  - name: File Processing
+    description: File processing and document analysis
+  - name: Agent
+    description: Agent functionality for meeting processing
+  - name: System
+    description: System health and status endpoints
+
+paths:
+  /query_database:
+    get:
+      tags:
+        - Database
+      summary: Search the database
+      description: Search the database using vector similarity search
+      operationId: queryDatabase
+      parameters:
+        - name: query
+          in: query
+          description: The search query string
+          required: true
+          schema:
+            type: string
+            example: "important meetings about project deadlines"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentResult'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /update_database:
+    post:
+      tags:
+        - File Processing
+      summary: Update database with new files
+      description: |
+        Scans the raw_files directory and processes any new files,
+        then updates the database with their contents.
+      operationId: updateDatabase
+      parameters:
+        - name: meeting_id
+          in: query
+          description: Only process files for this meeting
+          required: false
+          schema:
+            type: string
+            example: "meeting123"
+      responses:
+        '200':
+          description: Database update started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "Database update started in background"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-05-01T12:00:00Z"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /upload_file:
+    post:
+      tags:
+        - File Processing
+      summary: Upload and process a file
+      description: |
+        Upload a file to be processed and added to the database.
+        The file will be saved to the raw_files directory and then processed.
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "File uploaded and processing started"
+                  filename:
+                    type: string
+                    example: "document.pdf"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-05-01T12:00:00Z"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /process_meeting:
+    post:
+      tags:
+        - Agent
+      summary: Process files for a meeting
+      description: |
+        Process files for a specific meeting using the agent.
+        This will download and process all files associated with the meeting,
+        and generate a response.
+      operationId: processMeeting
+      parameters:
+        - name: meeting_id
+          in: query
+          description: The meeting ID to process
+          required: false
+          schema:
+            type: string
+            example: "meeting123"
+      requestBody:
+        description: Meeting information (optional, can use query parameter instead)
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                meeting_id:
+                  type: string
+                  description: The meeting ID to process
+                  example: "meeting123"
+      responses:
+        '200':
+          description: Meeting processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "Meeting processed"
+                  meeting_id:
+                    type: string
+                    example: "meeting123"
+                  result:
+                    type: object
+                    description: Result of the processing
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-05-01T12:00:00Z"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Simple health check endpoint
+      operationId: healthCheck
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-05-01T12:00:00Z"
+                  components:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "online"
+                      file_processing:
+                        type: string
+                        example: "online"
+                      agent:
+                        type: string
+                        example: "online"
+
+components:
+  schemas:
+    DocumentResult:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Document name
+          example: "ProjectMeeting.pdf"
+        date:
+          type: string
+          description: Document date
+          example: "2023-04-15"
+        data:
+          type: object
+          description: Document content and metadata
+          properties:
+            content:
+              type: string
+              description: Extracted text content
+              example: "This is the content of the document..."
+            summary:
+              type: string
+              description: Document summary
+              example: "Meeting about project deadlines and milestones."
+            topics:
+              type: array
+              items:
+                type: string
+              example: ["project", "deadlines", "milestones"]
+    
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Database query error: Connection failed" 

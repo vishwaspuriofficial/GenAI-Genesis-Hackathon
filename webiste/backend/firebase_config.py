@@ -20,8 +20,6 @@ class FirebaseService:
     def initialize(self):
         """Initialize Firebase with service account credentials"""
         try:
-            self.mock_mode = False  # Default to not using mock mode
-            
             cred = None
             if Config.FIREBASE_CREDENTIALS_JSON:
                 try:
@@ -53,8 +51,7 @@ class FirebaseService:
                 print("1. Create a service account in your Firebase project")
                 print("2. Generate a private key (JSON format)")
                 print("3. Save the JSON file as 'firebase-credentials.json' in the backend directory\n")
-                print("Starting in MOCK MODE - no real Firebase will be used\n")
-                self.mock_mode = True
+                
                 
                 # Create mock attributes
                 self.db = None
@@ -70,7 +67,6 @@ class FirebaseService:
             
             if not raw_bucket:
                 print("No Firebase Storage bucket URL found in configuration")
-                self.mock_mode = True
                 self.bucket = None
                 return
                 
@@ -87,8 +83,7 @@ class FirebaseService:
             if not bucket_name or bucket_name == "None" or '.' not in bucket_name:
                 print("\nWARNING: Invalid Firebase Storage bucket name.")
                 print(f"Current value: '{bucket_name}'")
-                print("Setting Storage to MOCK MODE.\n")
-                self.mock_mode = True
+
                 self.db = None
                 self.bucket = None
                 self.users_collection = 'user'
@@ -102,8 +97,6 @@ class FirebaseService:
                 print("Firebase app initialized successfully")
             except Exception as e:
                 print(f"Error initializing Firebase app: {str(e)}")
-                print("Starting in MOCK MODE due to Firebase app initialization error.")
-                self.mock_mode = True
                 self.db = None
                 self.bucket = None
                 self.users_collection = 'user'
@@ -114,12 +107,10 @@ class FirebaseService:
             print("Initializing Firestore client...")
             try:
                 self.db = firestore.client()
-                self.mock_mode = False
             except Exception as e:
                 print(f"Error creating Firestore client: {str(e)}")
                 print("Firestore will be in MOCK MODE.")
                 self.db = None
-                self.mock_mode = True
             
             # Test Firestore connection
             if self.db:
@@ -156,7 +147,6 @@ class FirebaseService:
                 print("4. Storage bucket name should match your Firebase project's default bucket")
                 print("\nStorage uploads will use MOCK URLs instead.\n")
                 self.bucket = None
-                self.mock_mode = True
             
             print("Firebase initialized successfully")
             
@@ -172,22 +162,15 @@ class FirebaseService:
                 self.filter_data_ref = self.db.collection(self.filter_data_collection)
                 print(f"Firestore collections initialized: {self.users_collection}, {self.appointments_collection}")
             
-            # Log final status
-            if self.mock_mode:
-                print("\nWARNING: Running in partial or full MOCK MODE")
-                print(f"Firestore available: {self.db is not None}")
-                print(f"Storage available: {self.bucket is not None}\n")
+
         except Exception as e:
             print(f"Error initializing Firebase: {str(e)}")
-            print("\nStarting in MOCK MODE - no real Firebase will be used\n")
-            # Create placeholders for development if Firebase isn't configured
             self.db = None
             self.bucket = None
             self.users_collection = 'user'
             self.appointments_collection = 'appointment'
             self.users_ref = None
             self.appointments_ref = None
-            self.mock_mode = True
     
     # File Storage methods
     def upload_file(self, file_path, filename=None, folder=None, content_type=None):
@@ -238,7 +221,7 @@ class FirebaseService:
         Args:
             file_url: The public URL of the file to delete
         """
-        if self.mock_mode or self.bucket is None:
+        if self.bucket is None:
             print("Firebase Storage not configured, skipping deletion")
             return
             
@@ -256,11 +239,7 @@ class FirebaseService:
         
         Note: This creates a document in the 'user' collection.
         """
-        if self.mock_mode or self.db is None:
-            print("Using mock database for create_user")
-            return "mock-user-id-12345"
-            
-        # Check if email already exists
+
         email_query = self.users_ref.where('email', '==', user_data['email']).limit(1).get()
         if len(list(email_query)) > 0:
             raise ValueError("Email already exists")
@@ -279,19 +258,7 @@ class FirebaseService:
         
         Note: This queries the 'user' collection.
         """
-        if self.mock_mode or self.db is None:
-            print("Using mock database for get_user_by_email")
-            if email == "test@example.com":
-                return {
-                    "id": "mock-user-id-12345",
-                    "email": "test@example.com",
-                    "password_hash": "$2b$12$1234567890123456789012",  # Mock hash
-                    "role": "product",
-                    "name": "Test User",
-                    "created_at": datetime.utcnow()
-                }
-            return None
-            
+
         users = self.users_ref.where('email', '==', email).limit(1).get()
         for user in users:
             # Return user data with ID
@@ -307,11 +274,7 @@ class FirebaseService:
         
         Note: This creates a document in the 'appointment' collection.
         """
-        if self.mock_mode or self.db is None:
-            print("Using mock database for create_meeting")
-            return "mock-meeting-id-12345"
-            
-        # Add timestamps
+
         meeting_data['created_at'] = firestore.SERVER_TIMESTAMP
         meeting_data['updated_at'] = firestore.SERVER_TIMESTAMP
         
@@ -338,15 +301,7 @@ class FirebaseService:
         Optionally filter by status.
         Note: This is querying the 'appointment' collection.
         """
-        if self.mock_mode or self.db is None:
-            print("Using mock database for get_meetings_by_team_or_requester")
-            mock_meetings = self.get_all_meetings()
-            if status:
-                return [m for m in mock_meetings if m.get('team_agent') == role or 
-                      m.get('requester_role') == role and m.get('status') == status]
-            return [m for m in mock_meetings if m.get('team_agent') == role or 
-                  m.get('requester_role') == role]
-            
+
         # We'll do two separate queries and combine the results
         team_query = self.appointments_ref.where('team_agent', '==', role)
         requester_query = self.appointments_ref.where('requester_role', '==', role)
@@ -445,14 +400,10 @@ class FirebaseService:
             
             # Extract the path more reliably
             if 'storage.googleapis.com' in file_url:
-                # Format: https://storage.googleapis.com/BUCKET_NAME/PATH
-                # Remove https://storage.googleapis.com/
                 path = '/'.join(file_url.split('/')[4:])
                 print(f"Parsed path using storage.googleapis.com format: {path}")
             elif 'firebasestorage.googleapis.com' in file_url:
-                # Extract path from Firebase Storage URL
                 if '/o/' in file_url:
-                    # Handle URL format: https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH?...
                     path = file_url.split('/o/')[1].split('?')[0]
                     path = path.replace('%2F', '/')
                     print(f"Parsed path using firebasestorage /o/ format: {path}")
@@ -557,10 +508,7 @@ class FirebaseService:
         
         Note: This updates a document in the 'appointment' collection.
         """
-        if self.mock_mode or self.db is None:
-            print(f"Using mock database for update_meeting_response: {meeting_id}")
-            return
-            
+  
         self.appointments_ref.document(meeting_id).update({
             'response': response,
             'updated_at': firestore.SERVER_TIMESTAMP
@@ -571,10 +519,7 @@ class FirebaseService:
         
         Note: This updates a document in the 'appointment' collection.
         """
-        if self.mock_mode or self.db is None:
-            print(f"Using mock database for add_attachment_to_meeting: {meeting_id}")
-            return True
-            
+
         # Add timestamp to attachment - use a string timestamp instead of SERVER_TIMESTAMP
         attachment_data['uploaded_at'] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -591,10 +536,6 @@ class FirebaseService:
         This requires getting the meeting, modifying the attachments list,
         and updating the document since ArrayRemove requires the exact object.
         """
-        if self.mock_mode or self.db is None:
-            print(f"Using mock database for remove_attachment_from_meeting: {meeting_id}")
-            return True
-            
         # Get the meeting
         meeting_ref = self.appointments_ref.document(meeting_id)
         meeting = meeting_ref.get()
@@ -627,10 +568,7 @@ class FirebaseService:
         Returns:
             True if successful, False otherwise
         """
-        if self.mock_mode or self.db is None:
-            print(f"Using mock database for add_response_file_to_meeting: {meeting_id}")
-            return True
-            
+ 
         try:
             # Get the meeting document
             meeting_ref = self.appointments_ref.document(meeting_id)
